@@ -1,9 +1,12 @@
 package containers.example.containers.Controller;
 
 //import containers.example.containers.Service.DockerService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Service.DockerService;
+import containers.example.containers.dto.ContainerConfigdto;
+import containers.example.containers.dto.DockerContainerResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,9 +30,10 @@ public class DockerController {
 
 
     @PostMapping("/create")
-    public ResponseEntity<Deployment> createContainer(@RequestBody ContainerConfig config) {
-        Deployment deployment = dockerService.createContainer(config);
-        return ResponseEntity.ok(deployment);
+    public ResponseEntity<Mono<String>> createContainer(@RequestBody ContainerConfigdto config ) {
+//        Deployment deployment = dockerService.createContainer(config);
+//        return ResponseEntity.ok(deployment);
+        return ResponseEntity.ok(dockerService.createContainer(config));
     }
 
     @PostMapping("/stop/{containerName}")
