@@ -30,7 +30,7 @@ public class DockerController {
 
 
     @PostMapping("/create")
-    public ResponseEntity<Mono<String>> createContainer(@RequestBody ContainerConfigdto config ) {
+    public ResponseEntity<Mono<DockerContainerResponse>> createContainer(@RequestBody ContainerConfigdto config ) {
 //        Deployment deployment = dockerService.createContainer(config);
 //        return ResponseEntity.ok(deployment);
         return ResponseEntity.ok(dockerService.createContainer(config));
@@ -40,6 +40,11 @@ public class DockerController {
     public ResponseEntity<Void> stopContainer(@PathVariable String containerName) {
         dockerService.stopContainer(containerName);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @PostMapping("/start/{containerId}")
+    public Mono<Void> startContainer(@PathVariable String containerId) {
+        return dockerService.startContainer(containerId);
     }
 
 
