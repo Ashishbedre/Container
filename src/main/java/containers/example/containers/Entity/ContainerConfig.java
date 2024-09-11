@@ -2,34 +2,37 @@ package containers.example.containers.Entity;
 
 import jakarta.persistence.*;
 
+import java.util.List;
+
 @Entity
 public class ContainerConfig {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String imageName;
-
     private String imageTag;
-
     private String name;
 
     @ElementCollection
-    private String[] env;
+//    @CollectionTable(name = "container_env_vars", joinColumns = @JoinColumn(name = "container_config_id"))
+//    @Column(name = "env_var")
+    private List<String> env;
 
     @ElementCollection
-    private String[] cmd;
+//    @CollectionTable(name = "container_cmd", joinColumns = @JoinColumn(name = "container_config_id"))
+//    @Column(name = "cmd")
+    private List<String> cmd;
 
-    private Integer exposedPort;
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+//    @JoinColumn(name = "container_config_id")
+    private List<PortMapping> portMappings;
 
-    private Integer hostPort;
-
-//     One-to-one relationship with Deployment
     @OneToOne(mappedBy = "containerConfig", cascade = CascadeType.ALL)
     private Deployment deployment;
 
-    // Getters and setters
+    // Getters and setters (modify to use List instead of array for env and cmd)
+    // ...
 
 
     public Long getId() {
@@ -64,36 +67,28 @@ public class ContainerConfig {
         this.name = name;
     }
 
-    public String[] getEnv() {
+    public List<String> getEnv() {
         return env;
     }
 
-    public void setEnv(String[] env) {
+    public void setEnv(List<String> env) {
         this.env = env;
     }
 
-    public String[] getCmd() {
+    public List<String> getCmd() {
         return cmd;
     }
 
-    public void setCmd(String[] cmd) {
+    public void setCmd(List<String> cmd) {
         this.cmd = cmd;
     }
 
-    public Integer getExposedPort() {
-        return exposedPort;
+    public List<PortMapping> getPortMappings() {
+        return portMappings;
     }
 
-    public void setExposedPort(Integer exposedPort) {
-        this.exposedPort = exposedPort;
-    }
-
-    public Integer getHostPort() {
-        return hostPort;
-    }
-
-    public void setHostPort(Integer hostPort) {
-        this.hostPort = hostPort;
+    public void setPortMappings(List<PortMapping> portMappings) {
+        this.portMappings = portMappings;
     }
 
     public Deployment getDeployment() {

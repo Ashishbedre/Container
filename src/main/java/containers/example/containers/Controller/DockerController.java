@@ -5,7 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Service.DockerService;
-import containers.example.containers.dto.ContainerConfigdto;
+import containers.example.containers.dto.ContainerConfigDto;
 import containers.example.containers.dto.DockerContainerResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -30,7 +30,7 @@ public class DockerController {
 
 
     @PostMapping("/create")
-    public ResponseEntity<Mono<DockerContainerResponse>> createContainer(@RequestBody ContainerConfigdto config ) {
+    public ResponseEntity<Mono<DockerContainerResponse>> createContainer(@RequestBody ContainerConfigDto config ) {
 //        Deployment deployment = dockerService.createContainer(config);
 //        return ResponseEntity.ok(deployment);
         return ResponseEntity.ok(dockerService.createContainer(config));
@@ -43,7 +43,7 @@ public class DockerController {
     }
 
     @PostMapping("/start/{containerId}")
-    public Mono<Void> startContainer(@PathVariable String containerId) {
+    public Void startContainer(@PathVariable String containerId) {
         return dockerService.startContainer(containerId);
     }
 

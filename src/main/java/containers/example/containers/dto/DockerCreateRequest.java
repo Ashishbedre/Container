@@ -3,14 +3,16 @@ package containers.example.containers.dto;
 import java.util.List;
 import java.util.Map;
 
+
 public class DockerCreateRequest {
     private String image;
     private List<String> env;
     private List<String> cmd;
-    private String name;
     private HostConfig hostConfig;
+    private String name;
+    private Map<String, Object> exposedPorts;
 
-    // Getters and setters...
+    // Getters and setters
 
 
     public String getImage() {
@@ -37,14 +39,6 @@ public class DockerCreateRequest {
         this.cmd = cmd;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public HostConfig getHostConfig() {
         return hostConfig;
     }
@@ -53,29 +47,49 @@ public class DockerCreateRequest {
         this.hostConfig = hostConfig;
     }
 
-    public static class HostConfig {
-        private Map<String, List<PortBinding>> PortBindings;
+    public String getName() {
+        return name;
+    }
 
-        // Getters and setters...
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Map<String, Object> getExposedPorts() {
+        return exposedPorts;
+    }
+
+    public void setExposedPorts(Map<String, Object> exposedPorts) {
+        this.exposedPorts = exposedPorts;
+    }
+
+    public static class HostConfig {
+        private Map<String, List<PortBinding>> portBindings;
+
+        // Getter and setter
+
 
         public Map<String, List<PortBinding>> getPortBindings() {
-            return PortBindings;
+            return portBindings;
         }
 
         public void setPortBindings(Map<String, List<PortBinding>> portBindings) {
-            PortBindings = portBindings;
+            this.portBindings = portBindings;
         }
     }
 
     public static class PortBinding {
-        private String HostPort;
+        private String hostPort;
+
+        // Getter and setter
+
 
         public String getHostPort() {
-            return HostPort;
+            return hostPort;
         }
 
         public void setHostPort(String hostPort) {
-            HostPort = hostPort;
+            this.hostPort = hostPort;
         }
     }
 }

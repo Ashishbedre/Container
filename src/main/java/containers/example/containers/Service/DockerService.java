@@ -1,24 +1,22 @@
 package containers.example.containers.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 //import containers.example.containers.Entity.ContainerConfig;
 //import containers.example.containers.Entity.Deployment;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Repository.ContainerConfigRepository;
 import containers.example.containers.Repository.DeploymentRepository;
-import containers.example.containers.dto.ContainerConfigdto;
+import containers.example.containers.dto.ContainerConfigDto;
 import containers.example.containers.dto.DockerContainerResponse;
 import containers.example.containers.dto.DockerCreateRequest;
+import containers.example.containers.Entity.PortMapping;
 import io.netty.handler.ssl.SslContextBuilder;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+        import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import reactor.netty.http.client.HttpClient;
 import org.springframework.core.io.ClassPathResource;
@@ -28,8 +26,7 @@ import reactor.core.publisher.Mono;
 import java.io.File;
 import java.io.IOException;
 
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+        import java.util.*;
 
 @Service
 public class DockerService {
@@ -89,22 +86,60 @@ public class DockerService {
                 .bodyToMono(String.class);
     }
 
-    public Mono<DockerContainerResponse> createContainer(ContainerConfigdto config)  {
 
+
+    public Mono<DockerContainerResponse> createContainer(ContainerConfigDto config)  {
         pullDockerImage(config.getImageName(),config.getImageTag());
-        Mono<DockerContainerResponse> containerId = createDockerContainer(config);
+
+        ContainerConfig containerConfig = new ContainerConfig();
+        containerConfig.setImageName(config.getImageName());
+        containerConfig.setImageTag(config.getImageTag());
+        containerConfig.setEnv(config.getEnv());
+        containerConfig.setCmd(config.getCmd());
+        containerConfig.setName(config.getName());
+        containerConfig.setPortMappings(config.getPortMappings());
+
+        Deployment deployment = new Deployment();
+        deployment.setDeploymentId("deploymentId");
+        deployment.setContainerConfig(containerConfig);
+        deploymentRepository.save(deployment);
+
+        return createDockerContainer(config)
+                .doOnNext(response -> logger.info("Container created and saved with ID: {}", response.getId()))
+                .doOnError(error -> logger.error("Error in createAndSaveContainer", error));
+//        System.out.println(containerId.block());
 //        DockerContainerResponse containerId1 = createDockerContainer(config).block();
-//        Mono<String> startContainer = startContainer("containerId1.getId()");
+//        Void startContainer = startContainer(containerId);
 
 //        Deployment deployment = new Deployment(config.getName() + "-deployment", config);
 //        config.setDeployment(deployment);
 
 //        containerConfigRepository.save(config);
 //        return deploymentRepository.save(deployment);
-//        DockerContainerResponse containerId = new DockerContainerResponse();
-//        return Mono.just(containerId);
-        return containerId;
+//        DockerContainerResponse container = new DockerContainerResponse();
+//        return Mono.just(container);
+//        return container;
     }
+
+//    private Mono<DockerContainerResponse> saveContainerDetails(ContainerConfigDto config, DockerContainerResponse response) {
+//
+//        ContainerConfig containerConfig = new ContainerConfig();
+//        containerConfig.setImageName(config.getImageName());
+//        containerConfig.setImageTag(config.getImageTag());
+//        containerConfig.setEnv(config.getEnv().toArray(new String[config.getEnv().size()]));
+//        containerConfig.setCmd(config.getCmd().toArray(new String[config.getCmd().size()]));
+//        containerConfig.setName(config.getName());
+//        containerConfig.setPortMappings(config.getPortMappings());
+//
+//        Deployment deployment = new Deployment();
+//        deployment.setDeploymentName(response.getId());
+//        deployment.setContainerConfig(containerConfig);
+//
+//        return Mono.fromCallable(() -> deploymentRepository.save(deployment))
+//                .thenReturn(response)
+//                .doOnSuccess(savedEntity -> logger.info("Container details saved to database"))
+//                .doOnError(error -> logger.error("Error saving container details to database", error));
+//    }
 
 
 //    public Mono<String> startContainer(String containerId) {
@@ -122,14 +157,16 @@ public class DockerService {
 //                .onErrorResume(e -> Mono.just("Error starting container: " + e.getMessage()));
 //    }
 
-    public Mono<Void> startContainer(String containerId) {
+    public Void startContainer(String containerId) {
+        System.out.println(containerId);
 
         return webClient.post()
                 .uri("https://172.16.0.3:2376/v1.46/containers/"+containerId+"/start")
 //                .header("Host", "172.16.0.3:2376")  // Correct usage of Host header
                 .contentLength(0)
                 .retrieve()
-                .bodyToMono(Void.class);
+                .bodyToMono(Void.class)
+                .block();
     }
 
 
@@ -138,22 +175,33 @@ public class DockerService {
         stopDockerContainer(containerId);
     }
 
-    public Mono<DockerContainerResponse> createDockerContainer(ContainerConfigdto config){
+    private Mono<DockerContainerResponse> createDockerContainer(ContainerConfigDto config) {
         DockerCreateRequest request = new DockerCreateRequest();
-        request.setImage(config.getImageName()+ ":"+ config.getImageTag());
+        request.setImage(config.getImageName() + ":" + config.getImageTag());
         request.setEnv(config.getEnv());
         request.setCmd(config.getCmd());
 
-// Set HostConfig with port bindings
         DockerCreateRequest.HostConfig hostConfig = new DockerCreateRequest.HostConfig();
         Map<String, List<DockerCreateRequest.PortBinding>> portBindings = new HashMap<>();
-        DockerCreateRequest.PortBinding portBinding = new DockerCreateRequest.PortBinding();
-        portBinding.setHostPort(config.getHostPort());
-        portBindings.put(config.getExposedPort()+"/tcp", Collections.singletonList(portBinding));  // Map 8080 on the host to 8080 on the container
-        hostConfig.setPortBindings(portBindings);
 
+        for (PortMapping portMapping : config.getPortMappings()) {
+            DockerCreateRequest.PortBinding portBinding = new DockerCreateRequest.PortBinding();
+            portBinding.setHostPort(portMapping.getHostPort());
+            String key = portMapping.getExposedPort() + "/" + portMapping.getProtocol();
+            portBindings.computeIfAbsent(key, k -> new ArrayList<>()).add(portBinding);
+        }
+
+        hostConfig.setPortBindings(portBindings);
         request.setHostConfig(hostConfig);
         request.setName(config.getName());
+
+        Map<String, Object> exposedPorts = new HashMap<>();
+        for (PortMapping portMapping : config.getPortMappings()) {
+            String key = portMapping.getExposedPort() + "/" + portMapping.getProtocol();
+            exposedPorts.put(key, new HashMap<>());
+        }
+        request.setExposedPorts(exposedPorts);
+
 
 
         return webClient.post()
@@ -163,20 +211,10 @@ public class DockerService {
                 .header("Content-Type", "application/json")
 //                .header("Content-Length", String.valueOf(contentLength))  // Set Content-Length
                 .retrieve()
-                .bodyToMono(DockerContainerResponse.class);
-//                .doOnNext(body -> {
-//            // Print or log the raw response body
-//            System.out.println("Raw response body: " + body);
-//        })
-//                .flatMap(body -> {
-//                    // Parse the raw response body to DockerContainerResponse
-//                    try {
-//                        DockerContainerResponse response = new ObjectMapper().readValue(body, DockerContainerResponse.class);
-//                        return Mono.just(response);
-//                    } catch (IOException e) {
-//                        return Mono.error(e);
-//                    }
-//                });
+                .bodyToMono(DockerContainerResponse.class)
+                .doOnSubscribe(subscription -> logger.info("Creating Docker container with config: {}", config))
+                .doOnNext(response -> logger.info("Docker API response received: {}", response))
+                .doOnError(error -> logger.error("Error in createDockerContainer", error));
 
     }
 

@@ -1,18 +1,19 @@
 package containers.example.containers.dto;
 
 
+import containers.example.containers.Entity.PortMapping;
+
 import java.util.List;
-import java.util.Map;
 
-public class ContainerConfigdto {
-    String imageName;
+public class ContainerConfigDto {
+    private String imageName;
+    private String imageTag;
+    private List<String> env;
+    private List<String> cmd;
+    private String name;
+    private List<PortMapping> portMappings;
 
-    String imageTag;
-    List<String> env;
-    List<String> cmd;
-    String name;
-    String hostPort; // Host port parameter
-    String exposedPort;
+    // Getters and setters
 
 
     public String getImageName() {
@@ -55,20 +56,11 @@ public class ContainerConfigdto {
         this.name = name;
     }
 
-    public String getHostPort() {
-        return hostPort;
+    public List<PortMapping> getPortMappings() {
+        return portMappings;
     }
 
-    public void setHostPort(String hostPort) {
-        this.hostPort = hostPort;
-    }
-
-    public String getExposedPort() {
-        return exposedPort;
-    }
-
-    public void setExposedPort(String exposedPort) {
-        this.exposedPort = exposedPort;
+    public void setPortMappings(List<PortMapping> portMappings) {
+        this.portMappings = portMappings;
     }
 }
-

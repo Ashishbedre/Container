@@ -1,17 +1,20 @@
 package containers.example.containers.Entity;
 
+
 import jakarta.persistence.*;
 
 
 @Entity
-public class Deployment {
+public class PortMapping {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String deploymentId;
+    private String protocol;
+    private String exposedPort;
+    private String hostPort;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @ManyToOne
 //    @JoinColumn(name = "container_config_id")
     private ContainerConfig containerConfig;
 
@@ -25,12 +28,28 @@ public class Deployment {
         this.id = id;
     }
 
-    public String getDeploymentId() {
-        return deploymentId;
+    public String getProtocol() {
+        return protocol;
     }
 
-    public void setDeploymentId(String deploymentId) {
-        this.deploymentId = deploymentId;
+    public void setProtocol(String protocol) {
+        this.protocol = protocol;
+    }
+
+    public String getExposedPort() {
+        return exposedPort;
+    }
+
+    public void setExposedPort(String exposedPort) {
+        this.exposedPort = exposedPort;
+    }
+
+    public String getHostPort() {
+        return hostPort;
+    }
+
+    public void setHostPort(String hostPort) {
+        this.hostPort = hostPort;
     }
 
     public ContainerConfig getContainerConfig() {
@@ -44,3 +63,4 @@ public class Deployment {
 
 
 }
+
