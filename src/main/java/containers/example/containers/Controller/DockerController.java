@@ -7,6 +7,7 @@ import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Service.DockerService;
 import containers.example.containers.dto.ContainerConfigDto;
 import containers.example.containers.dto.DockerContainerResponse;
+import containers.example.containers.dto.DockerInfoResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,25 +30,35 @@ public class DockerController {
         return dockerService.getDockerInfo(flag);
     }
 
+    @GetMapping("/AvaiableCpuAndMemory")
+    public DockerInfoResponse getAvaiableCpuAndMemory() {
+        return dockerService.getAvaiableCpuAndMemory();
+    }
+
     @PostMapping("/create")
     public ResponseEntity<Mono<DockerContainerResponse>> createContainer(@RequestBody ContainerConfigDto config ) {
         return ResponseEntity.ok(dockerService.createContainer(config));
     }
 
-//    @PostMapping("/stop/{containerName}")
-//    public ResponseEntity<Void> stopContainer(@PathVariable String containerName) {
-//        dockerService.stopContainer(containerName);
-//        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-//    }
+    @PostMapping("/start/{containerName}")
+    public Deployment startContainer(@PathVariable String containerName) {
+        return dockerService.startContainerByApi(containerName);
+    }
 
-//    @PostMapping("/start/{containerId}")
-//    public Void startContainer(@PathVariable String containerId) {
-//        return dockerService.startContainer(containerId);
-//    }
+    @PostMapping("/stop/{containerName}")
+    public ResponseEntity<Void> stopContainer(@PathVariable String containerName) {
+        dockerService.stopContainer(containerName);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
 
-//    @GetMapping("/containers")
-//    public Mono<String> listContainers() {
-//        return dockerService.listContainers();
-//    }
+    @DeleteMapping("/deleteByContainerName/{containerName}")
+    public ResponseEntity<String> deleteDeploymentByContainerName(@PathVariable String containerName) {
+        boolean isDeleted = dockerService.deleteByContainerName(containerName);
+        if (isDeleted) {
+            return ResponseEntity.ok("Deployment deleted successfully.");
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
 
 }

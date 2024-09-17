@@ -1,5 +1,6 @@
 package containers.example.containers.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.util.List;
@@ -18,6 +19,8 @@ public class ContainerConfig {
 
     private Long memory;
 
+    private boolean status;
+
     @ElementCollection
     private List<String> env;
 
@@ -28,6 +31,7 @@ public class ContainerConfig {
     private List<PortMapping> portMappings;
 
     @OneToOne(mappedBy = "containerConfig", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Deployment deployment;
 
 
@@ -79,6 +83,14 @@ public class ContainerConfig {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public boolean isStatus() {
+        return status;
+    }
+
+    public void setStatus(boolean status) {
+        this.status = status;
     }
 
     public List<String> getEnv() {
