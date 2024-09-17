@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-        import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import reactor.netty.http.client.HttpClient;
 import org.springframework.core.io.ClassPathResource;
@@ -25,19 +25,30 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import java.io.File;
 import java.io.IOException;
-
-        import java.util.*;
+import java.util.*;
 
 @Service
 public class DockerService {
 
     private final WebClient webClient;
 
-    @Value("${cert.path}")
-    private Resource certPath; // Path to client-cert.pem
+//    @Value("${cert.path}")
+//    private Resource certPath; // Path to client-cert.pem
+//
+//    @Value("${key.path}")
+//    private Resource keyPath; // Path to client-key.pem
 
-    @Value("${key.path}")
-    private Resource keyPath; // Path to client-key.pem
+    @Value("${docker.api.url}")
+    private String dockerApiUrl;
+
+    @Value("${docker.api.scheme}")
+    private String scheme;
+
+    @Value("${docker.api.host}")
+    private String host;
+
+    @Value("${docker.api.port}")
+    private int port;
 
     @Autowired
     private ContainerConfigRepository containerConfigRepository;
@@ -48,21 +59,23 @@ public class DockerService {
     private static final Logger logger = LoggerFactory.getLogger(DockerService.class);
 
 
-    public DockerService() {
-        // Load certificates from resources folder
-        Resource certResource = new ClassPathResource("client-cert.pem");
-        Resource keyResource = new ClassPathResource("client-key.pem");
-        Resource caCertResource = new ClassPathResource("ca.pem");
+    public DockerService(@Value("${docker.cert.path}") String certPath,
+                         @Value("${docker.key.path}") String keyPath,
+                         @Value("${docker.ca-cert.path}") String caCertPath) {
+        logger.info("Cert path: {}", certPath);
+        logger.info("Key path: {}", keyPath);
+        logger.info("CA cert path: {}", caCertPath);
 
-        File certFile;
-        File keyFile;
-        File caCertFile;
-        try {
-            certFile = certResource.getFile();
-            keyFile = keyResource.getFile();
-            caCertFile = caCertResource.getFile();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load SSL certificate files from resources", e);
+        File certFile = new File(certPath);
+        File keyFile = new File(keyPath);
+        File caCertFile = new File(caCertPath);
+
+        logger.info("Cert file exists: {}", certFile.exists());
+        logger.info("Key file exists: {}", keyFile.exists());
+        logger.info("CA cert file exists: {}", caCertFile.exists());
+
+        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
+            throw new RuntimeException("One or more SSL certificate files not found");
         }
 
         // Create an SSL context with custom key and trust managers
@@ -80,7 +93,7 @@ public class DockerService {
 
     public Mono<String> getDockerInfo( boolean flag) {
         return webClient.get()
-                .uri("https://172.16.0.3:2376/containers/json?all="+flag)
+                .uri(dockerApiUrl + "/containers/json?all="+flag)
                 .header("Host", "172.16.0.3:2376")  // Include port in the Host header
                 .retrieve()
                 .bodyToMono(String.class);
@@ -91,77 +104,37 @@ public class DockerService {
     public Mono<DockerContainerResponse> createContainer(ContainerConfigDto config)  {
         pullDockerImage(config.getImageName(),config.getImageTag());
 
+
+
+        DockerContainerResponse container = createDockerContainer(config).block();
+
         ContainerConfig containerConfig = new ContainerConfig();
         containerConfig.setImageName(config.getImageName());
         containerConfig.setImageTag(config.getImageTag());
         containerConfig.setEnv(config.getEnv());
         containerConfig.setCmd(config.getCmd());
         containerConfig.setName(config.getName());
+        containerConfig.setCpu(config.getCpusetCpus());
+        containerConfig.setMemory(config.getMemory());
         containerConfig.setPortMappings(config.getPortMappings());
 
         Deployment deployment = new Deployment();
-        deployment.setDeploymentId("deploymentId");
+        deployment.setDeploymentId(container.getId());
+        deployment.setContainerName(config.getName());
         deployment.setContainerConfig(containerConfig);
+        startContainer(container.getId());
         deploymentRepository.save(deployment);
 
-        return createDockerContainer(config)
-                .doOnNext(response -> logger.info("Container created and saved with ID: {}", response.getId()))
-                .doOnError(error -> logger.error("Error in createAndSaveContainer", error));
-//        System.out.println(containerId.block());
-//        DockerContainerResponse containerId1 = createDockerContainer(config).block();
-//        Void startContainer = startContainer(containerId);
-
-//        Deployment deployment = new Deployment(config.getName() + "-deployment", config);
-//        config.setDeployment(deployment);
-
-//        containerConfigRepository.save(config);
-//        return deploymentRepository.save(deployment);
-//        DockerContainerResponse container = new DockerContainerResponse();
-//        return Mono.just(container);
-//        return container;
+        return Mono.just(container);
     }
 
-//    private Mono<DockerContainerResponse> saveContainerDetails(ContainerConfigDto config, DockerContainerResponse response) {
-//
-//        ContainerConfig containerConfig = new ContainerConfig();
-//        containerConfig.setImageName(config.getImageName());
-//        containerConfig.setImageTag(config.getImageTag());
-//        containerConfig.setEnv(config.getEnv().toArray(new String[config.getEnv().size()]));
-//        containerConfig.setCmd(config.getCmd().toArray(new String[config.getCmd().size()]));
-//        containerConfig.setName(config.getName());
-//        containerConfig.setPortMappings(config.getPortMappings());
-//
-//        Deployment deployment = new Deployment();
-//        deployment.setDeploymentName(response.getId());
-//        deployment.setContainerConfig(containerConfig);
-//
-//        return Mono.fromCallable(() -> deploymentRepository.save(deployment))
-//                .thenReturn(response)
-//                .doOnSuccess(savedEntity -> logger.info("Container details saved to database"))
-//                .doOnError(error -> logger.error("Error saving container details to database", error));
-//    }
 
-
-//    public Mono<String> startContainer(String containerId) {
-//        return webClient.post()
-//                .uri("https://172.16.0.3:2376/v1.46/containers/{containerId}/start", containerId)
-//                .contentLength(0)  // Ensure no body is sent
-//                .exchangeToMono(response -> {
-//                    if (response.statusCode() == HttpStatus.NO_CONTENT) {
-//                        return Mono.just("Container " + containerId + " started successfully");
-//                    } else {
-//                        return response.bodyToMono(String.class)
-//                                .map(body -> "Failed to start container: " + body);
-//                    }
-//                })
-//                .onErrorResume(e -> Mono.just("Error starting container: " + e.getMessage()));
-//    }
 
     public Void startContainer(String containerId) {
         System.out.println(containerId);
 
         return webClient.post()
-                .uri("https://172.16.0.3:2376/v1.46/containers/"+containerId+"/start")
+                .uri(dockerApiUrl + "/containers/"+containerId+"/start")
 //                .header("Host", "172.16.0.3:2376")  // Correct usage of Host header
                 .contentLength(0)
                 .retrieve()
@@ -169,11 +142,6 @@ public class DockerService {
                 .block();
     }
 
-
-    public void stopContainer(String containerName) {
-        String containerId = findContainerIdByName(containerName);
-        stopDockerContainer(containerId);
-    }
 
     private Mono<DockerContainerResponse> createDockerContainer(ContainerConfigDto config) {
         DockerCreateRequest request = new DockerCreateRequest();
@@ -192,8 +160,10 @@ public class DockerService {
         }
 
         hostConfig.setPortBindings(portBindings);
+        hostConfig.setMemory(config.getMemory());  // 2 GB dedicated memory
+        hostConfig.setCpusetCpus(config.getCpusetCpus());  // Dedicated CPU cores 0 and 1
         request.setHostConfig(hostConfig);
-        request.setName(config.getName());
+//        request.setName(config.getName());
 
         Map<String, Object> exposedPorts = new HashMap<>();
         for (PortMapping portMapping : config.getPortMappings()) {
@@ -205,7 +175,7 @@ public class DockerService {
 
 
         return webClient.post()
-                .uri("https://172.16.0.3:2376/v1.46/containers/create")
+                .uri(dockerApiUrl + "/containers/create?name="+config.getName())
                 .bodyValue(request)
                 .header("Host", "172.16.0.3:2376")  // Include port in the Host header
                 .header("Content-Type", "application/json")
@@ -221,9 +191,9 @@ public class DockerService {
     public void pullDockerImage(String image, String tag) {
         webClient.post()
                 .uri(uriBuilder -> uriBuilder
-                        .scheme("https")
-                        .host("172.16.0.3")
-                        .port(2376)
+                        .scheme(scheme)
+                        .host(host)
+                        .port(port)
                         .path("/images/create")
                         .queryParam("fromImage", image)
                         .queryParam("tag", tag)
@@ -241,29 +211,34 @@ public class DockerService {
 
 
 
-    private void stopDockerContainer(String containerId) {
-        webClient.post()
-                .uri("https://172.16.0.3:2376" + "/containers/{containerId}/stop", containerId)
-                .retrieve()
-                .bodyToMono(Void.class)
-                .block();
-    }
+//    private void stopDockerContainer(String containerId) {
+//        webClient.post()
+//                .uri(dockerApiUrl +  "/containers/{containerId}/stop", containerId)
+//                .retrieve()
+//                .bodyToMono(Void.class)
+//                .block();
+//    }
 
-    private String findContainerIdByName(String containerName) {
+    //    public void stopContainer(String containerName) {
+//        String containerId = findContainerIdByName(containerName);
+//        stopDockerContainer(containerId);
+//    }
 
-        Map containerList =  webClient.get()
-                .uri("https://172.16.0.3:2376"  + "/containers/json")
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
-        for (Map<String, Object> container : (Iterable<Map<String, Object>>) containerList.get("Containers")) {
-            if (container.get("Names").equals("/" + containerName)) {
-                return (String) container.get("Id");
-            }
-        }
-
-        throw new RuntimeException("Container not found: " + containerName);
-    }
+//    private String findContainerIdByName(String containerName) {
+//
+//        Map containerList =  webClient.get()
+//                .uri(dockerApiUrl + "/containers/json")
+//                .retrieve()
+//                .bodyToMono(Map.class)
+//                .block();
+//        for (Map<String, Object> container : (Iterable<Map<String, Object>>) containerList.get("Containers")) {
+//            if (container.get("Names").equals("/" + containerName)) {
+//                return (String) container.get("Id");
+//            }
+//        }
+//
+//        throw new RuntimeException("Container not found: " + containerName);
+//    }
 
 
 

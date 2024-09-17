@@ -11,6 +11,9 @@ public class ContainerConfigDto {
     private List<String> env;
     private List<String> cmd;
     private String name;
+
+    private Long Memory;  // Dedicated memory in bytes
+    private String CpusetCpus;  // Dedicated CPU cores (e.g., "0,1")
     private List<PortMapping> portMappings;
 
     // Getters and setters
@@ -54,6 +57,22 @@ public class ContainerConfigDto {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Long getMemory() {
+        return Memory;
+    }
+
+    public void setMemory(Long memory) {
+        Memory = memory;
+    }
+
+    public String getCpusetCpus() {
+        return CpusetCpus;
+    }
+
+    public void setCpusetCpus(String cpusetCpus) {
+        CpusetCpus = cpusetCpus;
     }
 
     public List<PortMapping> getPortMappings() {

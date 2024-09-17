@@ -14,25 +14,22 @@ public class ContainerConfig {
     private String imageTag;
     private String name;
 
+    private String cpu;
+
+    private Long memory;
+
     @ElementCollection
-//    @CollectionTable(name = "container_env_vars", joinColumns = @JoinColumn(name = "container_config_id"))
-//    @Column(name = "env_var")
     private List<String> env;
 
     @ElementCollection
-//    @CollectionTable(name = "container_cmd", joinColumns = @JoinColumn(name = "container_config_id"))
-//    @Column(name = "cmd")
     private List<String> cmd;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-//    @JoinColumn(name = "container_config_id")
     private List<PortMapping> portMappings;
 
     @OneToOne(mappedBy = "containerConfig", cascade = CascadeType.ALL)
     private Deployment deployment;
 
-    // Getters and setters (modify to use List instead of array for env and cmd)
-    // ...
 
 
     public Long getId() {
@@ -61,6 +58,23 @@ public class ContainerConfig {
 
     public String getName() {
         return name;
+    }
+
+
+    public String getCpu() {
+        return cpu;
+    }
+
+    public void setCpu(String cpu) {
+        this.cpu = cpu;
+    }
+
+    public Long getMemory() {
+        return memory;
+    }
+
+    public void setMemory(Long memory) {
+        this.memory = memory;
     }
 
     public void setName(String name) {

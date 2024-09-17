@@ -15,6 +15,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/docker")
+@CrossOrigin("*")
 public class DockerController {
 
     private final DockerService dockerService;
@@ -28,30 +29,25 @@ public class DockerController {
         return dockerService.getDockerInfo(flag);
     }
 
-
     @PostMapping("/create")
     public ResponseEntity<Mono<DockerContainerResponse>> createContainer(@RequestBody ContainerConfigDto config ) {
-//        Deployment deployment = dockerService.createContainer(config);
-//        return ResponseEntity.ok(deployment);
         return ResponseEntity.ok(dockerService.createContainer(config));
     }
 
-    @PostMapping("/stop/{containerName}")
-    public ResponseEntity<Void> stopContainer(@PathVariable String containerName) {
-        dockerService.stopContainer(containerName);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-    }
+//    @PostMapping("/stop/{containerName}")
+//    public ResponseEntity<Void> stopContainer(@PathVariable String containerName) {
+//        dockerService.stopContainer(containerName);
+//        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+//    }
 
-    @PostMapping("/start/{containerId}")
-    public Void startContainer(@PathVariable String containerId) {
-        return dockerService.startContainer(containerId);
-    }
-
-
-
+//    @PostMapping("/start/{containerId}")
+//    public Void startContainer(@PathVariable String containerId) {
+//        return dockerService.startContainer(containerId);
+//    }
 
 //    @GetMapping("/containers")
 //    public Mono<String> listContainers() {
 //        return dockerService.listContainers();
 //    }
+
 }

@@ -11,11 +11,12 @@ public class Deployment {
 
     private String deploymentId;
 
+    private String containerName;
+
     @OneToOne(cascade = CascadeType.ALL)
-//    @JoinColumn(name = "container_config_id")
     private ContainerConfig containerConfig;
 
-    // Getters and setters
+
 
     public Long getId() {
         return id;
@@ -31,6 +32,14 @@ public class Deployment {
 
     public void setDeploymentId(String deploymentId) {
         this.deploymentId = deploymentId;
+    }
+
+    public String getContainerName() {
+        return containerName;
+    }
+
+    public void setContainerName(String containerName) {
+        this.containerName = containerName;
     }
 
     public ContainerConfig getContainerConfig() {

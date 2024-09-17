@@ -15,10 +15,7 @@ public class PortMapping {
     private String hostPort;
 
     @ManyToOne
-//    @JoinColumn(name = "container_config_id")
     private ContainerConfig containerConfig;
-
-    // Getters and setters
 
     public Long getId() {
         return id;
@@ -59,7 +56,6 @@ public class PortMapping {
     public void setContainerConfig(ContainerConfig containerConfig) {
         this.containerConfig = containerConfig;
     }
-    // ...
 
 
 }
