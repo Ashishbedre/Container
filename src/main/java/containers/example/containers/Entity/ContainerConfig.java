@@ -21,13 +21,13 @@ public class ContainerConfig {
 
     private boolean status;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> env;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> cmd;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PortMapping> portMappings;
 
     @OneToOne(mappedBy = "containerConfig", cascade = CascadeType.ALL)
