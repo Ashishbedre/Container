@@ -158,6 +158,7 @@ public class DockerUpdateServiceImp {
 
     private boolean isOnlyMemoryOrCpuUpdate(ContainerConfigDto request) {
         return ((request.getMemory() != null || request.getCpusetCpus() != null)) &&
+                ((request.getMemory() == null && request.getCpusetCpus() == null)) &&
                 !changesAffectRecreation(request);
     }
 
@@ -167,6 +168,8 @@ public class DockerUpdateServiceImp {
                 (request.getEnv() != null && !request.getEnv().isEmpty()) || // Check if env is not null and not empty
                 (request.getCmd() != null && !request.getCmd().isEmpty()) || // Check if cmd is not null and not empty
                 (request.getPortMappings() != null && !request.getPortMappings().isEmpty()); // Check if portMappings is not null and not empty
+
+
     }
 
     //     Update memory and cpusetCpus
