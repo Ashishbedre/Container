@@ -21,6 +21,8 @@ public interface DockerService {
 //    public Mono<String> updateContainerResourcesByName(String containerName, UpdateContainerRequest requestBody);
     public boolean deleteByContainerName(String containerName);
 
+    public void pullDockerImage(String image, String tag);
+
 
 
 }

@@ -2,6 +2,7 @@ package containers.example.containers.Service.Imp;
 
 //import containers.example.containers.Entity.ContainerConfig;
 //import containers.example.containers.Entity.Deployment;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Repository.ContainerConfigRepository;
@@ -21,6 +22,7 @@ import reactor.netty.http.client.HttpClient;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
@@ -47,40 +49,63 @@ public class DockerServiceImp implements DockerService {
     @Autowired
     private DeploymentRepository deploymentRepository;
 
+//    @Autowired
+//    AuthService authService;
+
+    @Autowired
+    public DockerServiceImp(WebClient webClient) {
+        this.webClient = webClient;
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(DockerServiceImp.class);
 
 
-    public DockerServiceImp(@Value("${docker.cert.path}") String certPath,
-                            @Value("${docker.key.path}") String keyPath,
-                            @Value("${docker.ca-cert.path}") String caCertPath) {
-        logger.info("Cert path: {}", certPath);
-        logger.info("Key path: {}", keyPath);
-        logger.info("CA cert path: {}", caCertPath);
+//    public DockerServiceImp(@Value("${docker.cert.path}") String certPath,
+//                            @Value("${docker.key.path}") String keyPath,
+//                            @Value("${docker.ca-cert.path}") String caCertPath) {
+//        logger.info("Cert path: {}", certPath);
+//        logger.info("Key path: {}", keyPath);
+//        logger.info("CA cert path: {}", caCertPath);
+//
+//        File certFile = new File(certPath);
+//        File keyFile = new File(keyPath);
+//        File caCertFile = new File(caCertPath);
+//
+//        logger.info("Cert file exists: {}", certFile.exists());
+//        logger.info("Key file exists: {}", keyFile.exists());
+//        logger.info("CA cert file exists: {}", caCertFile.exists());
+//
+//        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
+//            throw new RuntimeException("One or more SSL certificate files not found");
+//        }
+//
+//        // Create an SSL context with custom key and trust managers
+//        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
+//                .keyManager(certFile, keyFile)
+//                .trustManager(caCertFile);
+//
+//        HttpClient httpClient = HttpClient.create()
+//                .secure(sslSpec -> sslSpec.sslContext(sslContextBuilder));
+//
+//        this.webClient = WebClient.builder()
+//                .clientConnector(new ReactorClientHttpConnector(httpClient))
+//                .build();
+//    }
 
-        File certFile = new File(certPath);
-        File keyFile = new File(keyPath);
-        File caCertFile = new File(caCertPath);
+    private String createAuthHeader() {
+        try {
+            Map<String, String> authConfig = new HashMap<>();
+            authConfig.put("username", "ashishbedre");
+            authConfig.put("password", "123456789");
 
-        logger.info("Cert file exists: {}", certFile.exists());
-        logger.info("Key file exists: {}", keyFile.exists());
-        logger.info("CA cert file exists: {}", caCertFile.exists());
-
-        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
-            throw new RuntimeException("One or more SSL certificate files not found");
+            ObjectMapper objectMapper = new ObjectMapper();
+            String authJson = objectMapper.writeValueAsString(authConfig);
+            return Base64.getEncoder().encodeToString(authJson.getBytes());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create auth header", e);
         }
-
-        // Create an SSL context with custom key and trust managers
-        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-                .keyManager(certFile, keyFile)
-                .trustManager(caCertFile);
-
-        HttpClient httpClient = HttpClient.create()
-                .secure(sslSpec -> sslSpec.sslContext(sslContextBuilder));
-
-        this.webClient = WebClient.builder()
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .build();
     }
+
 
     public Mono<String> getDockerInfo( boolean flag) {
         return webClient.get()
@@ -116,7 +141,14 @@ public class DockerServiceImp implements DockerService {
     public DockerContainerResponse createContainer(ContainerConfigDto config)  {
 
         pullDockerImage(config.getImageName(),config.getImageTag());
-        DockerContainerResponse container = createDockerContainer(config).block();
+        DockerContainerResponse container;
+        try {
+            container = createDockerContainer(config).block();
+        }catch (Exception e){
+            e.printStackTrace();
+            throw new RuntimeException("Docker container creation failed.");
+        }
+//        DockerContainerResponse container = createDockerContainer(config).block();
         if (container == null) {
             throw new RuntimeException("Docker container creation failed.");
         }
@@ -293,7 +325,10 @@ public class DockerServiceImp implements DockerService {
 
     }
 
-    private void pullDockerImage(String image, String tag) {
+
+
+    public void pullDockerImage(String image, String tag) {
+        String authHeader = createAuthHeader();
         webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .scheme(scheme)
@@ -305,6 +340,7 @@ public class DockerServiceImp implements DockerService {
                         .build())
                 .header("Host", host+":"+port)  // Include port in the Host header
                 .header("Content-Type", "application/json")
+                .header("X-Registry-Auth", authHeader)
                 .retrieve()
                 .bodyToFlux(String.class)  // Handle a stream of responses
                 .doOnNext(response -> {

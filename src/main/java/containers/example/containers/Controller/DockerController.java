@@ -61,5 +61,11 @@ public class DockerController {
             return ResponseEntity.notFound().build();
         }
     }
+    @PostMapping("/pull/{tag}")
+    public ResponseEntity<Void> pull(@PathVariable String tag) {
+        dockerService.pullDockerImage("ashishbedre/delete",tag);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
 
 }

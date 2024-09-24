@@ -49,38 +49,42 @@ public class DockerUpdateServiceImp {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerServiceImp.class);
 
-
-    public DockerUpdateServiceImp(@Value("${docker.cert.path}") String certPath,
-                            @Value("${docker.key.path}") String keyPath,
-                            @Value("${docker.ca-cert.path}") String caCertPath) {
-        logger.info("Cert path: {}", certPath);
-        logger.info("Key path: {}", keyPath);
-        logger.info("CA cert path: {}", caCertPath);
-
-        File certFile = new File(certPath);
-        File keyFile = new File(keyPath);
-        File caCertFile = new File(caCertPath);
-
-        logger.info("Cert file exists: {}", certFile.exists());
-        logger.info("Key file exists: {}", keyFile.exists());
-        logger.info("CA cert file exists: {}", caCertFile.exists());
-
-        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
-            throw new RuntimeException("One or more SSL certificate files not found");
-        }
-
-        // Create an SSL context with custom key and trust managers
-        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-                .keyManager(certFile, keyFile)
-                .trustManager(caCertFile);
-
-        HttpClient httpClient = HttpClient.create()
-                .secure(sslSpec -> sslSpec.sslContext(sslContextBuilder));
-
-        this.webClient = WebClient.builder()
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .build();
+    public DockerUpdateServiceImp(WebClient webClient) {
+        this.webClient = webClient;
     }
+
+
+//    public DockerUpdateServiceImp(@Value("${docker.cert.path}") String certPath,
+//                            @Value("${docker.key.path}") String keyPath,
+//                            @Value("${docker.ca-cert.path}") String caCertPath) {
+//        logger.info("Cert path: {}", certPath);
+//        logger.info("Key path: {}", keyPath);
+//        logger.info("CA cert path: {}", caCertPath);
+//
+//        File certFile = new File(certPath);
+//        File keyFile = new File(keyPath);
+//        File caCertFile = new File(caCertPath);
+//
+//        logger.info("Cert file exists: {}", certFile.exists());
+//        logger.info("Key file exists: {}", keyFile.exists());
+//        logger.info("CA cert file exists: {}", caCertFile.exists());
+//
+//        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
+//            throw new RuntimeException("One or more SSL certificate files not found");
+//        }
+//
+//        // Create an SSL context with custom key and trust managers
+//        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
+//                .keyManager(certFile, keyFile)
+//                .trustManager(caCertFile);
+//
+//        HttpClient httpClient = HttpClient.create()
+//                .secure(sslSpec -> sslSpec.sslContext(sslContextBuilder));
+//
+//        this.webClient = WebClient.builder()
+//                .clientConnector(new ReactorClientHttpConnector(httpClient))
+//                .build();
+//    }
 
     public Mono<String> updateContainerResourcesByName(String containerName, ContainerConfigDto requestBody){
         Deployment deployment = deploymentRepository.findByContainerName(containerName)
@@ -157,8 +161,8 @@ public class DockerUpdateServiceImp {
 
 
     private boolean isOnlyMemoryOrCpuUpdate(ContainerConfigDto request) {
-        return ((request.getMemory() != null || request.getCpusetCpus() != null)) &&
-                ((request.getMemory() == null && request.getCpusetCpus() == null)) &&
+        return (((request.getMemory() != null || request.getCpusetCpus() != null)) ||
+                ((request.getMemory() == null && request.getCpusetCpus() == null))) &&
                 !changesAffectRecreation(request);
     }
 
