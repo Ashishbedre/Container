@@ -5,6 +5,7 @@ package containers.example.containers.Service.Imp;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
+import containers.example.containers.Helper;
 import containers.example.containers.Repository.ContainerConfigRepository;
 import containers.example.containers.Repository.DeploymentRepository;
 import containers.example.containers.Service.DockerService;
@@ -24,6 +25,7 @@ import reactor.core.publisher.Mono;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class DockerServiceImp implements DockerService {
@@ -49,8 +51,10 @@ public class DockerServiceImp implements DockerService {
     @Autowired
     private DeploymentRepository deploymentRepository;
 
-//    @Autowired
-//    AuthService authService;
+    @Autowired
+    Helper helper;
+
+
 
     @Autowired
     public DockerServiceImp(WebClient webClient) {
@@ -60,51 +64,6 @@ public class DockerServiceImp implements DockerService {
     private static final Logger logger = LoggerFactory.getLogger(DockerServiceImp.class);
 
 
-//    public DockerServiceImp(@Value("${docker.cert.path}") String certPath,
-//                            @Value("${docker.key.path}") String keyPath,
-//                            @Value("${docker.ca-cert.path}") String caCertPath) {
-//        logger.info("Cert path: {}", certPath);
-//        logger.info("Key path: {}", keyPath);
-//        logger.info("CA cert path: {}", caCertPath);
-//
-//        File certFile = new File(certPath);
-//        File keyFile = new File(keyPath);
-//        File caCertFile = new File(caCertPath);
-//
-//        logger.info("Cert file exists: {}", certFile.exists());
-//        logger.info("Key file exists: {}", keyFile.exists());
-//        logger.info("CA cert file exists: {}", caCertFile.exists());
-//
-//        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
-//            throw new RuntimeException("One or more SSL certificate files not found");
-//        }
-//
-//        // Create an SSL context with custom key and trust managers
-//        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-//                .keyManager(certFile, keyFile)
-//                .trustManager(caCertFile);
-//
-//        HttpClient httpClient = HttpClient.create()
-//                .secure(sslSpec -> sslSpec.sslContext(sslContextBuilder));
-//
-//        this.webClient = WebClient.builder()
-//                .clientConnector(new ReactorClientHttpConnector(httpClient))
-//                .build();
-//    }
-
-    private String createAuthHeader() {
-        try {
-            Map<String, String> authConfig = new HashMap<>();
-            authConfig.put("username", "ashishbedre");
-            authConfig.put("password", "123456789");
-
-            ObjectMapper objectMapper = new ObjectMapper();
-            String authJson = objectMapper.writeValueAsString(authConfig);
-            return Base64.getEncoder().encodeToString(authJson.getBytes());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create auth header", e);
-        }
-    }
 
 
     public Mono<String> getDockerInfo( boolean flag) {
@@ -117,7 +76,7 @@ public class DockerServiceImp implements DockerService {
 
 
 
-    public DockerInfoResponse getAvaiableCpuAndMemory() {
+    public ResourceUsageDto getAvaiableCpuAndMemory() {
         DockerInfoResponse dockerInfoResponse = webClient
                 .get()
                 .uri(dockerApiUrl + "/info")
@@ -125,16 +84,20 @@ public class DockerServiceImp implements DockerService {
                 .retrieve()
                 .bodyToMono(DockerInfoResponse.class).block();
 
+        ResourceUsageDto resourceUsageDto = new ResourceUsageDto();
 //         Perform some manipulation on the retrieved data
         if (dockerInfoResponse != null) {
             // Get total CPU and memory, defaulting to 0 if null
             Integer totalCpu = deploymentRepository.getTotalCpu() != null ? deploymentRepository.getTotalCpu() : 0;
             Long totalMemory = deploymentRepository.getTotalMemory() != null ? deploymentRepository.getTotalMemory() : 0L;
 
-            dockerInfoResponse.setNcpu(dockerInfoResponse.getNcpu() - totalCpu);
-            dockerInfoResponse.setMemTotal(dockerInfoResponse.getMemTotal()-totalMemory);
+            resourceUsageDto.setAvailableCpu(dockerInfoResponse.getNcpu());
+            resourceUsageDto.setLeftCpu(dockerInfoResponse.getNcpu() - totalCpu);
+            resourceUsageDto.setAvailableMemory(dockerInfoResponse.getMemTotal());
+            resourceUsageDto.setLeftMemory(dockerInfoResponse.getMemTotal()-totalMemory);
+
         }
-        return dockerInfoResponse;
+        return resourceUsageDto;
     }
 
 
@@ -159,15 +122,33 @@ public class DockerServiceImp implements DockerService {
         containerConfig.setEnv(config.getEnv());
         containerConfig.setCmd(config.getCmd());
         containerConfig.setName(config.getName());
-        containerConfig.setCpu(config.getCpusetCpus());
-        containerConfig.setMemory(config.getMemory());
-        containerConfig.setPortMappings(config.getPortMappings());
+//        containerConfig.setCpu(config.getCpusetCpus());
+//        containerConfig.setMemory(config.getMemory());
+
+        containerConfig.setCpu(config.getCpusetCpus() != null ? config.getCpusetCpus() : "0");
+        containerConfig.setMemory(config.getMemory() != null ? config.getMemory() : 0L);
+//        containerConfig.setPortMappings(config.getPortMappings());
+        List<PortMapping> portMappingDtos = config.getPortMappings().stream()
+                .map(portMapping -> {
+                    PortMapping pmDto = new PortMapping();
+                    pmDto.setProtocol(portMapping.getProtocol());
+                    pmDto.setExposedPort(portMapping.getExposedPort());
+                    pmDto.setHostPort(portMapping.getHostPort());
+                    return pmDto;
+                })
+                .collect(Collectors.toList());
+        containerConfig.setPortMappings(portMappingDtos);
 
         Deployment deployment = new Deployment();
         deployment.setDeploymentId(container.getId());
         deployment.setContainerName(config.getName());
         deployment.setContainerConfig(containerConfig);
-        deploymentRepository.save(deployment);
+        // Consider wrapping the save in a transaction
+        try {
+            deploymentRepository.save(deployment);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save deployment: " + e.getMessage());
+        }
         startContainer(container.getId());
 
         return container;
@@ -328,7 +309,7 @@ public class DockerServiceImp implements DockerService {
 
 
     public void pullDockerImage(String image, String tag) {
-        String authHeader = createAuthHeader();
+        String authHeader = helper.createAuthHeader();
         webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .scheme(scheme)

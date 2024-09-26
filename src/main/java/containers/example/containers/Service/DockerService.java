@@ -1,17 +1,14 @@
 package containers.example.containers.Service;
 
 import containers.example.containers.Entity.Deployment;
-import containers.example.containers.dto.ContainerConfigDto;
-import containers.example.containers.dto.DockerContainerResponse;
-import containers.example.containers.dto.DockerInfoResponse;
-import containers.example.containers.dto.UpdateContainerRequest;
+import containers.example.containers.dto.*;
 import reactor.core.publisher.Mono;
 
 public interface DockerService {
 
     public Mono<String> getDockerInfo(boolean flag);
 
-    public DockerInfoResponse getAvaiableCpuAndMemory();
+    public ResourceUsageDto getAvaiableCpuAndMemory();
 
     public DockerContainerResponse createContainer(ContainerConfigDto config);
 

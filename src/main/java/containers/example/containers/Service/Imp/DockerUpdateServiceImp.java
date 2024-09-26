@@ -3,8 +3,10 @@ package containers.example.containers.Service.Imp;
 
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
+import containers.example.containers.Entity.PortMapping;
 import containers.example.containers.Repository.ContainerConfigRepository;
 import containers.example.containers.Repository.DeploymentRepository;
+import containers.example.containers.Service.DockerUpdateService;
 import containers.example.containers.dto.ContainerConfigDto;
 import containers.example.containers.dto.UpdateContainerRequest;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -19,10 +21,11 @@ import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 
 import java.io.File;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
-public class DockerUpdateServiceImp {
+public class DockerUpdateServiceImp implements DockerUpdateService {
 
     private final WebClient webClient;
 
@@ -54,44 +57,12 @@ public class DockerUpdateServiceImp {
     }
 
 
-//    public DockerUpdateServiceImp(@Value("${docker.cert.path}") String certPath,
-//                            @Value("${docker.key.path}") String keyPath,
-//                            @Value("${docker.ca-cert.path}") String caCertPath) {
-//        logger.info("Cert path: {}", certPath);
-//        logger.info("Key path: {}", keyPath);
-//        logger.info("CA cert path: {}", caCertPath);
-//
-//        File certFile = new File(certPath);
-//        File keyFile = new File(keyPath);
-//        File caCertFile = new File(caCertPath);
-//
-//        logger.info("Cert file exists: {}", certFile.exists());
-//        logger.info("Key file exists: {}", keyFile.exists());
-//        logger.info("CA cert file exists: {}", caCertFile.exists());
-//
-//        if (!certFile.exists() || !keyFile.exists() || !caCertFile.exists()) {
-//            throw new RuntimeException("One or more SSL certificate files not found");
-//        }
-//
-//        // Create an SSL context with custom key and trust managers
-//        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-//                .keyManager(certFile, keyFile)
-//                .trustManager(caCertFile);
-//
-//        HttpClient httpClient = HttpClient.create()
-//                .secure(sslSpec -> sslSpec.sslContext(sslContextBuilder));
-//
-//        this.webClient = WebClient.builder()
-//                .clientConnector(new ReactorClientHttpConnector(httpClient))
-//                .build();
-//    }
-
     public Mono<String> updateContainerResourcesByName(String containerName, ContainerConfigDto requestBody){
         Deployment deployment = deploymentRepository.findByContainerName(containerName)
                 .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
 
         // Check if it's only a memory or CPU update
-        if (isOnlyMemoryOrCpuUpdate(requestBody)) {
+        if (isOnlyMemoryOrCpuUpdate(containerName,requestBody)) {
             return updateContainerResources(deployment.getDeploymentId(), requestBody);
         } else {
             return recreateContainer(containerName, requestBody);
@@ -105,11 +76,8 @@ public class DockerUpdateServiceImp {
                 .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
 
         return  deployment;
-//        return webClient.get()
-//                .uri(dockerApiUrl + "/containers/{containerName}/json", containerName)  // Docker API Inspect Container endpoint
-//                .retrieve()
-//                .bodyToMono(String.class);
     }
+
 
     private Mono<String>  recreateContainer(String containerName, ContainerConfigDto requestBody){
         Deployment deployment = deploymentRepository.findByContainerName(containerName)
@@ -155,31 +123,52 @@ public class DockerUpdateServiceImp {
         return requestBody;
     }
 
-
-
-
-
-
-    private boolean isOnlyMemoryOrCpuUpdate(ContainerConfigDto request) {
+    private boolean isOnlyMemoryOrCpuUpdate(String containerName, ContainerConfigDto request) {
         return (((request.getMemory() != null || request.getCpusetCpus() != null)) ||
                 ((request.getMemory() == null && request.getCpusetCpus() == null))) &&
-                !changesAffectRecreation(request);
+                !changesAffectRecreation(containerName,request);
     }
 
-    private boolean changesAffectRecreation(ContainerConfigDto request) {
-        return request.getImageName() != null ||
-                request.getImageTag() != null ||
-                (request.getEnv() != null && !request.getEnv().isEmpty()) || // Check if env is not null and not empty
-                (request.getCmd() != null && !request.getCmd().isEmpty()) || // Check if cmd is not null and not empty
-                (request.getPortMappings() != null && !request.getPortMappings().isEmpty()); // Check if portMappings is not null and not empty
+    private boolean changesAffectRecreation(String containerName,ContainerConfigDto request) {
+        Deployment deployment = deploymentRepository.findByContainerName(containerName)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
+        return (request.getImageName() != null && !request.getImageName().equals(deployment.getContainerConfig().getImageName()))
+                || (request.getImageTag() != null && !request.getImageTag().equals(deployment.getContainerConfig().getImageTag()))
+                || (request.getEnv() != null && !request.getEnv().isEmpty() && !request.getEnv().equals(deployment.getContainerConfig().getEnv()))
+                || (request.getCmd() != null && !request.getCmd().isEmpty() && !request.getCmd().equals(deployment.getContainerConfig().getCmd()))
+                || (request.getPortMappings() != null && !request.getPortMappings().isEmpty() && !comparePortMappings(request.getPortMappings(), deployment.getContainerConfig().getPortMappings()));
 
 
     }
+    private boolean comparePortMappings(List<PortMapping> requestPortMappings, List<PortMapping> existingPortMappings) {
+        if (requestPortMappings.size() != existingPortMappings.size()) {
+            return false;
+        }
+
+        // Compare the fields in PortMapping manually
+        for (int i = 0; i < requestPortMappings.size(); i++) {
+            PortMapping reqMapping = requestPortMappings.get(i);
+            PortMapping existingMapping = existingPortMappings.get(i);
+
+            if (reqMapping.getExposedPort() != null && !reqMapping.getExposedPort().equals(existingMapping.getExposedPort())) {
+                return false;
+            }
+            if (reqMapping.getHostPort() != null && !reqMapping.getHostPort().equals(existingMapping.getHostPort())) {
+                return false;
+            }
+            if (reqMapping.getProtocol() != null && !reqMapping.getProtocol().equals(existingMapping.getProtocol())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 
     //     Update memory and cpusetCpus
     public Mono<String> updateContainerResources(String containerId,ContainerConfigDto requestBody) {
 
-        UpdateContainerRequest request = new UpdateContainerRequest(requestBody.getMemory(), requestBody.getCpusetCpus());
+        UpdateContainerRequest request = new UpdateContainerRequest(requestBody.getMemory(),requestBody.getMemory(), requestBody.getCpusetCpus());
 
         return webClient.post()
                 .uri(dockerApiUrl + "/containers/" + containerId + "/update")
@@ -190,8 +179,10 @@ public class DockerUpdateServiceImp {
                     Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
                             .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
                     ContainerConfig containerConfig = deployment.getContainerConfig();
-                    containerConfig.setMemory(requestBody.getMemory());
-                    containerConfig.setCpu(requestBody.getCpusetCpus());
+//                    containerConfig.setMemory(requestBody.getMemory());
+//                    containerConfig.setCpu(requestBody.getCpusetCpus());
+                    containerConfig.setCpu(requestBody.getCpusetCpus() != null ? requestBody.getCpusetCpus() : "0");
+                    containerConfig.setMemory(requestBody.getMemory() != null ? requestBody.getMemory() : 0L);
                     deploymentRepository.save(deployment);
                     return Mono.just(response); // Return the response from Docker API
                 })

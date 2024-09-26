@@ -2,6 +2,7 @@ package containers.example.containers.Controller;
 
 
 import containers.example.containers.Entity.Deployment;
+import containers.example.containers.Service.DockerUpdateService;
 import containers.example.containers.Service.Imp.DockerUpdateServiceImp;
 import containers.example.containers.dto.ContainerConfigDto;
 import containers.example.containers.dto.UpdateContainerRequest;
@@ -16,21 +17,19 @@ import reactor.core.publisher.Mono;
 public class DockerUpdateController {
 
     @Autowired
-    DockerUpdateServiceImp dockerUpdateServiceImp;
+    DockerUpdateService dockerUpdateService;
 
     @PostMapping("/containers/{containerName}/update")
     public Mono<ResponseEntity<String>> updateContainer(@PathVariable String containerName,
                                                         @RequestBody ContainerConfigDto requestBody) {
-        return dockerUpdateServiceImp.updateContainerResourcesByName(containerName,requestBody)
+        return dockerUpdateService.updateContainerResourcesByName(containerName,requestBody)
                 .map(response -> ResponseEntity.ok(response))
                 .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body("Failed to update container")));
     }
 
     @GetMapping("/containers/{containerName}/inspect")
     public Deployment inspectContainer(@PathVariable String containerName) {
-        return dockerUpdateServiceImp.inspectContainer(containerName);
-//                .map(response -> ResponseEntity.ok().body(response))
-//                .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body(e.getMessage())));
+        return dockerUpdateService.inspectContainer(containerName);
     }
 
 

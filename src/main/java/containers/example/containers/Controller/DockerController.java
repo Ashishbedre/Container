@@ -4,10 +4,7 @@ package containers.example.containers.Controller;
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Service.DockerService;
 import containers.example.containers.Service.Imp.DockerServiceImp;
-import containers.example.containers.dto.ContainerConfigDto;
-import containers.example.containers.dto.DockerContainerResponse;
-import containers.example.containers.dto.DockerInfoResponse;
-import containers.example.containers.dto.UpdateContainerRequest;
+import containers.example.containers.dto.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +28,7 @@ public class DockerController {
     }
 
     @GetMapping("/AvaiableCpuAndMemory")
-    public ResponseEntity<DockerInfoResponse> getAvaiableCpuAndMemory() {
+    public ResponseEntity<ResourceUsageDto> getAvaiableCpuAndMemory() {
         return ResponseEntity.ok(dockerService.getAvaiableCpuAndMemory());
     }
 

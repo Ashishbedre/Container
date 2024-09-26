@@ -2,14 +2,16 @@ package containers.example.containers.dto;
 
 
 public class UpdateContainerRequest {
-    private long memory;      // Memory in bytes
-    private String cpusetCpus; // Restrict CPU cores
+    private long memory;          // Memory in bytes
+    private long memorySwap;      // Memory swap in bytes
+    private String cpusetCpus;    // Restrict CPU cores
 
     public UpdateContainerRequest() {
     }
 
-    public UpdateContainerRequest(long memory, String cpusetCpus) {
+    public UpdateContainerRequest(long memory, long memorySwap, String cpusetCpus) {
         this.memory = memory;
+        this.memorySwap = memorySwap;
         this.cpusetCpus = cpusetCpus;
     }
 
@@ -19,6 +21,14 @@ public class UpdateContainerRequest {
 
     public void setMemory(long memory) {
         this.memory = memory;
+    }
+
+    public long getMemorySwap() {
+        return memorySwap;
+    }
+
+    public void setMemorySwap(long memorySwap) {
+        this.memorySwap = memorySwap;
     }
 
     public String getCpusetCpus() {
