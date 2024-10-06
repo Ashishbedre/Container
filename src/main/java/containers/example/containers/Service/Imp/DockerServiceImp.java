@@ -2,28 +2,23 @@ package containers.example.containers.Service.Imp;
 
 //import containers.example.containers.Entity.ContainerConfig;
 //import containers.example.containers.Entity.Deployment;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
-import containers.example.containers.Helper;
+import containers.example.containers.Helper.Helper;
 import containers.example.containers.Repository.ContainerConfigRepository;
 import containers.example.containers.Repository.DeploymentRepository;
 import containers.example.containers.Service.DockerService;
 import containers.example.containers.dto.*;
 import containers.example.containers.Entity.PortMapping;
-import io.netty.handler.ssl.SslContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import reactor.netty.http.client.HttpClient;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import java.io.File;
-import java.nio.charset.StandardCharsets;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -103,7 +98,7 @@ public class DockerServiceImp implements DockerService {
 
     public DockerContainerResponse createContainer(ContainerConfigDto config)  {
 
-        pullDockerImage(config.getImageName(),config.getImageTag());
+        pullDockerImage(config.getImageName(),config.getImageTag(),config.getUsername(),config.getPassword(),config.getEmail(),config.getServerAddress());
         DockerContainerResponse container;
         try {
             container = createDockerContainer(config).block();
@@ -122,6 +117,10 @@ public class DockerServiceImp implements DockerService {
         containerConfig.setEnv(config.getEnv());
         containerConfig.setCmd(config.getCmd());
         containerConfig.setName(config.getName());
+        containerConfig.setEmail(config.getEmail());
+        containerConfig.setServerAddress(config.getServerAddress());
+        containerConfig.setUsername(config.getUsername());
+        containerConfig.setPassword(config.getPassword());
 //        containerConfig.setCpu(config.getCpusetCpus());
 //        containerConfig.setMemory(config.getMemory());
 
@@ -209,7 +208,7 @@ public class DockerServiceImp implements DockerService {
         Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
                 .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
         ContainerConfig containerConfig = deployment.getContainerConfig();
-        containerConfig.setStatus(false);
+        containerConfig.setStatus("exited");
         deploymentRepository.save(deployment);
 
         webClient.post()
@@ -236,7 +235,7 @@ public class DockerServiceImp implements DockerService {
             Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
                     .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
             ContainerConfig containerConfig = deployment.getContainerConfig();
-            containerConfig.setStatus(true);
+            containerConfig.setStatus("running");
             deploymentRepository.save(deployment);
             return null; // Returning null as Void is expected
 
@@ -307,10 +306,13 @@ public class DockerServiceImp implements DockerService {
     }
 
 
+    public void pullDockerImage(String image, String tag, String username,String password,String email,String serverAddress) {
+        String authHeader = null;
+        if (username != null && password != null && !username.isBlank() && !password.isBlank()) {
+            authHeader = helper.createAuthHeader(username, password, email ,serverAddress);
+        }
 
-    public void pullDockerImage(String image, String tag) {
-        String authHeader = helper.createAuthHeader();
-        webClient.post()
+        WebClient.RequestHeadersSpec<?> requestSpec = webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .scheme(scheme)
                         .host(host)
@@ -320,16 +322,50 @@ public class DockerServiceImp implements DockerService {
                         .queryParam("tag", tag)
                         .build())
                 .header("Host", host+":"+port)  // Include port in the Host header
-                .header("Content-Type", "application/json")
-                .header("X-Registry-Auth", authHeader)
-                .retrieve()
-                .bodyToFlux(String.class)  // Handle a stream of responses
+                .header("Content-Type", "application/json");
+
+        // Conditionally add the authentication header only if authHeader is not null
+        if (authHeader != null) {
+            requestSpec = requestSpec.header("X-Registry-Auth", authHeader);
+        }
+
+        // Send the request and handle the response
+        requestSpec.retrieve()
+                .bodyToFlux(String.class)
                 .doOnNext(response -> {
                     System.out.println("Docker image pull response: " + response);
                 })
-                .blockLast();  // Wait for the last response to ensure the entire process completes
-
+                .doOnError(error -> {
+                    System.err.println("Error pulling Docker image: " + error.getMessage());
+                })
+                .blockLast();
     }
+
+
+//
+//
+//    public void pullDockerImage(String image, String tag) {
+//        String authHeader = helper.createAuthHeader();
+//        webClient.post()
+//                .uri(uriBuilder -> uriBuilder
+//                        .scheme(scheme)
+//                        .host(host)
+//                        .port(port)
+//                        .path("/images/create")
+//                        .queryParam("fromImage", image)
+//                        .queryParam("tag", tag)
+//                        .build())
+//                .header("Host", host+":"+port)  // Include port in the Host header
+//                .header("Content-Type", "application/json")
+//                .header("X-Registry-Auth", authHeader)
+//                .retrieve()
+//                .bodyToFlux(String.class)  // Handle a stream of responses
+//                .doOnNext(response -> {
+//                    System.out.println("Docker image pull response: " + response);
+//                })
+//                .blockLast();  // Wait for the last response to ensure the entire process completes
+//
+//    }
 
 
 }

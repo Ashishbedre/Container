@@ -1,52 +1,51 @@
-package containers.example.containers.Entity;
+package containers.example.containers.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+import containers.example.containers.Entity.PortMapping;
 
 import java.util.List;
 
-@Entity
-public class ContainerConfig {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class DeploymentDto {
 
+//    private Long id;
+    private String deploymentId;
+    private String containerName;
+
+    // ContainerConfig fields without the password
     private String imageName;
     private String imageTag;
-    private String name;
-
+//    private String name;
     private String cpu;
-
     private Long memory;
-
     private String status;
-
-    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> env;
-
-    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> cmd;
-
-    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PortMapping> portMappings;
-
-    @OneToOne(mappedBy = "containerConfig", cascade = CascadeType.ALL)
-    @JsonIgnore
-    private Deployment deployment;
-
-    // New fields for authentication
+    private List<PortMappingdto> portMappings;
     private String username;
-    private String password;
     private String email;
     private String serverAddress;
 
+//    public Long getId() {
+//        return id;
+//    }
+//
+//    public void setId(Long id) {
+//        this.id = id;
+//    }
 
-    public Long getId() {
-        return id;
+    public String getDeploymentId() {
+        return deploymentId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setDeploymentId(String deploymentId) {
+        this.deploymentId = deploymentId;
+    }
+
+    public String getContainerName() {
+        return containerName;
+    }
+
+    public void setContainerName(String containerName) {
+        this.containerName = containerName;
     }
 
     public String getImageName() {
@@ -65,10 +64,13 @@ public class ContainerConfig {
         this.imageTag = imageTag;
     }
 
-    public String getName() {
-        return name;
-    }
-
+//    public String getName() {
+//        return name;
+//    }
+//
+//    public void setName(String name) {
+//        this.name = name;
+//    }
 
     public String getCpu() {
         return cpu;
@@ -85,11 +87,6 @@ public class ContainerConfig {
     public void setMemory(Long memory) {
         this.memory = memory;
     }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
 
     public String getStatus() {
         return status;
@@ -115,20 +112,13 @@ public class ContainerConfig {
         this.cmd = cmd;
     }
 
-    public List<PortMapping> getPortMappings() {
+
+    public List<PortMappingdto> getPortMappings() {
         return portMappings;
     }
 
-    public void setPortMappings(List<PortMapping> portMappings) {
+    public void setPortMappings(List<PortMappingdto> portMappings) {
         this.portMappings = portMappings;
-    }
-
-    public Deployment getDeployment() {
-        return deployment;
-    }
-
-    public void setDeployment(Deployment deployment) {
-        this.deployment = deployment;
     }
 
     public String getUsername() {
@@ -137,14 +127,6 @@ public class ContainerConfig {
 
     public void setUsername(String username) {
         this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     public String getEmail() {

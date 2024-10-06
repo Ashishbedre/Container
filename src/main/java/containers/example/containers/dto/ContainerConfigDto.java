@@ -16,6 +16,12 @@ public class ContainerConfigDto {
     private String CpusetCpus;  // Dedicated CPU cores (e.g., "0,1")
     private List<PortMapping> portMappings;
 
+    // New fields for authentication
+    private String username;
+    private String password;
+    private String email;
+    private String serverAddress;
+
     // Getters and setters
 
 
@@ -81,5 +87,37 @@ public class ContainerConfigDto {
 
     public void setPortMappings(List<PortMapping> portMappings) {
         this.portMappings = portMappings;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getServerAddress() {
+        return serverAddress;
+    }
+
+    public void setServerAddress(String serverAddress) {
+        this.serverAddress = serverAddress;
     }
 }

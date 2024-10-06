@@ -11,10 +11,10 @@ import java.util.Optional;
 @Repository
 public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
 
-    @Query("SELECT SUM(c.memory) FROM Deployment d JOIN d.containerConfig c WHERE c.status = true")
+    @Query("SELECT SUM(c.memory) FROM Deployment d JOIN d.containerConfig c WHERE c.status = 'running'")
     Long getTotalMemory();
 
-    @Query("SELECT SUM(CAST(c.cpu AS int)) FROM Deployment d JOIN d.containerConfig c WHERE c.status = true")
+    @Query("SELECT SUM(CAST(c.cpu AS int)) FROM Deployment d JOIN d.containerConfig c WHERE c.status = 'running'")
     Integer getTotalCpu();
 
     Optional<Deployment> findByContainerName(String containerName);

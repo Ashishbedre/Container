@@ -60,7 +60,7 @@ public class DockerController {
     }
     @PostMapping("/pull/{tag}")
     public ResponseEntity<Void> pull(@PathVariable String tag) {
-        dockerService.pullDockerImage("ashishbedre/delete",tag);
+        dockerService.pullDockerImage("mysql","latest","ashishbedre","123456789" ,null,null);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 

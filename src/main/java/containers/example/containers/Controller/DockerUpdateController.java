@@ -5,6 +5,7 @@ import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Service.DockerUpdateService;
 import containers.example.containers.Service.Imp.DockerUpdateServiceImp;
 import containers.example.containers.dto.ContainerConfigDto;
+import containers.example.containers.dto.DeploymentDto;
 import containers.example.containers.dto.UpdateContainerRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,7 @@ public class DockerUpdateController {
     }
 
     @GetMapping("/containers/{containerName}/inspect")
-    public Deployment inspectContainer(@PathVariable String containerName) {
+    public DeploymentDto inspectContainer(@PathVariable String containerName) {
         return dockerUpdateService.inspectContainer(containerName);
     }
 
