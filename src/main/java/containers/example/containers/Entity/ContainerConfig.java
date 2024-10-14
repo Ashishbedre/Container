@@ -21,6 +21,8 @@ public class ContainerConfig {
 
     private String status;
 
+    private boolean State;
+
     @ElementCollection(fetch = FetchType.EAGER)
     private List<String> env;
 
@@ -97,6 +99,15 @@ public class ContainerConfig {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+
+    public boolean isState() {
+        return State;
+    }
+
+    public void setState(boolean state) {
+        State = state;
     }
 
     public List<String> getEnv() {

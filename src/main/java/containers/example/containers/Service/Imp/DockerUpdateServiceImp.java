@@ -81,6 +81,18 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
                 .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
         DeploymentDto deploymentdto = getContainerDetailsById(deployment.getDeploymentId()).block();
         ContainerConfig config = deployment.getContainerConfig();
+        config.setName(containerName);
+        // Mapping PortMapping to PortMappingdto
+        List<PortMappingdto> portMappingDtos = config.getPortMappings().stream()
+                .map(portMapping -> {
+                    PortMappingdto dto = new PortMappingdto();
+                    dto.setProtocol(portMapping.getProtocol());
+                    dto.setExposedPort(portMapping.getExposedPort());
+                    dto.setHostPort(portMapping.getHostPort());
+                    return dto;
+                }).collect(Collectors.toList());
+        deploymentdto.setPortMappings(portMappingDtos);
+
         deploymentdto.setEnv(config.getEnv());
         deploymentdto.setUsername(config.getUsername());
         deploymentdto.setEmail(config.getEmail());
@@ -103,7 +115,9 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
         // Map containerMap fields to DeploymentDto fields
         DeploymentDto deploymentDto = new DeploymentDto();
         deploymentDto.setDeploymentId((String) containerMap.get("Id"));
-        deploymentDto.setContainerName((String) containerMap.get("Name"));
+//        deploymentDto.setContainerName((String) containerMap.get("Name"));
+
+
 
         Map<String, Object> config = (Map<String, Object>) containerMap.get("Config");
 
@@ -136,10 +150,10 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
         deploymentDto.setCpu(String.valueOf(hostConfig.get("CpusetCpus")));
         deploymentDto.setMemory(((Number) hostConfig.get("Memory")).longValue());
 
-        // Map Ports (including protocol)
-        Map<String, Object> networkSettings = (Map<String, Object>) containerMap.get("NetworkSettings");
-        Map<String, Object> ports = (Map<String, Object>) networkSettings.get("Ports");
-        deploymentDto.setPortMappings(mapPorts(ports));
+//        // Map Ports (including protocol)
+//        Map<String, Object> networkSettings = (Map<String, Object>) containerMap.get("NetworkSettings");
+//        Map<String, Object> ports = (Map<String, Object>) networkSettings.get("Ports");
+//        deploymentDto.setPortMappings(mapPorts(ports));
 
         return deploymentDto;
     }

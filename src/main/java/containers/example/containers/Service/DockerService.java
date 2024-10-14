@@ -2,11 +2,14 @@ package containers.example.containers.Service;
 
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.dto.*;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 public interface DockerService {
 
-    public Mono<String> getDockerInfo(boolean flag);
+    public Flux<Map<String, Object>> getDockerInfo(boolean flag);
 
     public ResourceUsageDto getAvaiableCpuAndMemory();
 

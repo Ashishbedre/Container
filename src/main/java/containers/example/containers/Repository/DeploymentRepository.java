@@ -20,4 +20,9 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
     Optional<Deployment> findByContainerName(String containerName);
 
     Optional<Deployment> findByDeploymentId(String deploymentId);
+
+    // Custom delete method based on deploymentId
+    void deleteByDeploymentId(String deploymentId);
+
+
 }

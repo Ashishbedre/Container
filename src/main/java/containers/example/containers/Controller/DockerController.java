@@ -9,7 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/docker")
@@ -23,7 +26,7 @@ public class DockerController {
         this.dockerService = dockerService;
     }
     @GetMapping("/info/{flag}")
-    public ResponseEntity<Mono<String>> getDockerInfo(@PathVariable boolean flag) {
+    public ResponseEntity<Flux<Map<String, Object>>> getDockerInfo(@PathVariable boolean flag) {
         return ResponseEntity.ok(dockerService.getDockerInfo(flag));
     }
 

@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
@@ -61,12 +62,66 @@ public class DockerServiceImp implements DockerService {
 
 
 
-    public Mono<String> getDockerInfo( boolean flag) {
+    public Flux<Map<String, Object>> getDockerInfo(boolean flag) {
+
+        // Fetch all deployments from the database and store them in a map
+        List<Deployment> deployments = deploymentRepository.findAll();
+        Map<String, Deployment> deploymentMap = new HashMap<>();
+        for (Deployment deployment : deployments) {
+            deploymentMap.put(deployment.getContainerName(), deployment);
+        }
+
         return webClient.get()
                 .uri(dockerApiUrl + "/containers/json?all="+flag)
                 .header("Host", host+":"+port)  // Include port in the Host header
-                .retrieve()
-                .bodyToMono(String.class);
+                .retrieve() // Fetch the response
+                .bodyToFlux(Map.class)
+                .map(container -> {
+                    // Assuming "Names" is a list
+                    List<String> names = (List<String>) container.get("Names");
+                    String containerName = names != null && !names.isEmpty() ? names.get(0) : null; // Safely get the first name
+
+                    // Remove leading slash if present
+                    if (containerName != null && containerName.startsWith("/")) {
+                        containerName = containerName.substring(1);
+                    }
+
+                    Deployment deployment = deploymentMap.get(containerName);
+
+                    Map<String, Object> response = new HashMap<>(container);
+
+                    if (deployment != null && deployment.getContainerConfig() != null) {
+                        ContainerConfig config = deployment.getContainerConfig();
+
+                        // Check both CPU and Memory values carefully
+                        if ((config.getCpu() == null || config.getCpu().isBlank() || Integer.parseInt(config.getCpu()) == 0) &&
+                                (config.getMemory() == null || config.getMemory().equals(0) || config.getMemory() == 0)) {
+                            // Fallback values if no valid CPU or memory are found
+                            response.put("cpu", null);
+                            response.put("memory", null);
+                        } else {
+                            // Use the CPU and memory from the database if present
+                            response.put("cpu", config.getCpu());
+                            response.put("memory", config.getMemory());
+                        }
+
+                        response.put("ui", config.isState());
+                    } else {
+//                        // Fallback values if no deployment is found
+                        response.put("cpu", null);
+                        response.put("memory", null);
+                        response.put("ui",0);
+                    }
+
+//                    // Remove fields if specified
+//                    if (fieldsToOmit != null) {
+//                        String[] fields = fieldsToOmit.split(",");
+//                        for (String field : fields) {
+//                            response.remove(field.trim());
+//                        }
+//                    }
+                    return response;
+                });
     }
 
 
@@ -121,6 +176,7 @@ public class DockerServiceImp implements DockerService {
         containerConfig.setServerAddress(config.getServerAddress());
         containerConfig.setUsername(config.getUsername());
         containerConfig.setPassword(config.getPassword());
+        containerConfig.setState(true);
 //        containerConfig.setCpu(config.getCpusetCpus());
 //        containerConfig.setMemory(config.getMemory());
 
@@ -209,6 +265,7 @@ public class DockerServiceImp implements DockerService {
                 .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
         ContainerConfig containerConfig = deployment.getContainerConfig();
         containerConfig.setStatus("exited");
+//        containerConfig.setState("0");
         deploymentRepository.save(deployment);
 
         webClient.post()
@@ -236,6 +293,7 @@ public class DockerServiceImp implements DockerService {
                     .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
             ContainerConfig containerConfig = deployment.getContainerConfig();
             containerConfig.setStatus("running");
+//            containerConfig.setState("1");
             deploymentRepository.save(deployment);
             return null; // Returning null as Void is expected
 
