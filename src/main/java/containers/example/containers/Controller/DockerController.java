@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.Map;
 
 @RestController
@@ -37,24 +38,37 @@ public class DockerController {
 
     @PostMapping("/create")
     public ResponseEntity<DockerContainerResponse> createContainer(@RequestBody ContainerConfigDto config ) {
-        return ResponseEntity.ok(dockerService.createContainer(config));
+        try {
+            DockerContainerResponse response = dockerService.createContainer(config);
+            return ResponseEntity.ok(response);
+        } catch (DockerOperationException e) {
+            DockerContainerResponse errorResponse = new DockerContainerResponse();
+            errorResponse.setId(null);
+            errorResponse.setWarnings(Collections.singletonList(e.getMessage()));
+            return ResponseEntity.status(e.getStatusCode()).body(errorResponse);
+        } catch (Exception e) {
+            DockerContainerResponse errorResponse = new DockerContainerResponse();
+            errorResponse.setId(null);
+            errorResponse.setWarnings(Collections.singletonList("An unexpected error occurred: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 
-    @PostMapping("/start/{containerName}")
-    public ResponseEntity<Deployment> startContainer(@PathVariable String containerName) {
-        Deployment deployment = dockerService.startContainerByApi(containerName);
+    @PostMapping("/start/{containerId}")
+    public ResponseEntity<Deployment> startContainer(@PathVariable String containerId) {
+        Deployment deployment = dockerService.startContainer(containerId);
         return ResponseEntity.ok(deployment);
     }
 
-    @PostMapping("/stop/{containerName}")
-    public ResponseEntity<Void> stopContainer(@PathVariable String containerName) {
-        dockerService.stopContainer(containerName);
+    @PostMapping("/stop/{containerId}")
+    public ResponseEntity<Void> stopContainer(@PathVariable String containerId) {
+        dockerService.stopDockerContainer(containerId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
-    @DeleteMapping("/deleteByContainerName/{containerName}")
-    public ResponseEntity<String> deleteDeploymentByContainerName(@PathVariable String containerName) {
-        boolean isDeleted = dockerService.deleteByContainerName(containerName);
+    @DeleteMapping("/deleteByContainerId/{containerId}")
+    public ResponseEntity<String> deleteDeploymentByContainerId(@PathVariable String containerId) {
+        boolean isDeleted = dockerService.deleteByContainerId(containerId);
         if (isDeleted) {
             return ResponseEntity.ok("Deployment deleted successfully.");
         } else {

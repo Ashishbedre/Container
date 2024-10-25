@@ -62,26 +62,32 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
     }
 
 
-    public Mono<String> updateContainerResourcesByName(String containerName, ContainerConfigDto requestBody){
-        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
+    public Mono<String> updateContainerResourcesByName(String containerId, ContainerConfigDto requestBody){
+        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerId + "' not found."));
 
+        if(deployment.getContainerConfig().getStatus().equals("pending")){
+            requestBody.setDeploymentId(containerId);
+            requestBody.setStatus("pending");
+            dockerServiceImp.createContainer(requestBody);
+            return Mono.just("Container recreated successfully");
+        }
         // Check if it's only a memory or CPU update
-        if (isOnlyMemoryOrCpuUpdate(containerName,requestBody)) {
+        if (isOnlyMemoryOrCpuUpdate(containerId,requestBody)) {
             return updateContainerResources(deployment.getDeploymentId(), requestBody);
         } else {
-            return recreateContainer(containerName, requestBody);
+            return recreateContainer(containerId, requestBody);
         }
 
     }
 
-    public DeploymentDto inspectContainer(String containerName) {
+    public DeploymentDto inspectContainer(String containerId) {
 
-        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
+        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerId + "' not found."));
         DeploymentDto deploymentdto = getContainerDetailsById(deployment.getDeploymentId()).block();
         ContainerConfig config = deployment.getContainerConfig();
-        config.setName(containerName);
+        deploymentdto.setContainerName(deployment.getContainerName());
         // Mapping PortMapping to PortMappingdto
         List<PortMappingdto> portMappingDtos = config.getPortMappings().stream()
                 .map(portMapping -> {
@@ -239,12 +245,12 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
     }
 
 
-    private Mono<String>  recreateContainer(String containerName, ContainerConfigDto requestBody){
-        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
+    private Mono<String>  recreateContainer(String containerId, ContainerConfigDto requestBody){
+        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerId + "' not found."));
 //        ContainerConfigDto recreateBody = updateDeploymentFromDto(deployment,requestBody);
         if(requestBody.getName()==null){
-            requestBody.setName(containerName);
+            requestBody.setName(deployment.getContainerName());
         }
         if(requestBody.getUsername()==null || requestBody.getUsername().isBlank() ||
                 requestBody.getPassword()==null || requestBody.getPassword().isBlank()){
@@ -252,7 +258,7 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
                 requestBody.setPassword(deployment.getContainerConfig().getPassword());
         }
         try {
-            dockerServiceImp.deleteByContainerName(containerName);
+            dockerServiceImp.deleteByContainerId(containerId);
             deploymentRepository.deleteById(deployment.getId());
             dockerServiceImp.createContainer(requestBody);
 

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class Helper {
@@ -24,4 +25,9 @@ public class Helper {
             throw new RuntimeException("Failed to create auth header", e);
         }
     }
+
+    public String generateDeploymentId() {
+        return UUID.randomUUID().toString();
+    }
+
 }

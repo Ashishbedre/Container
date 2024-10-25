@@ -70,13 +70,13 @@ public class DeploymentSyncService {
                 deploymentRepository.save(newDeployment);
             }
         });
-        // Step 4: Handle deployments that are in the database but not in the API
-        deployments.forEach(dbDeployment -> {
-            if (!apiDeploymentIds.contains(dbDeployment.getDeploymentId())) {
-                // Deployment exists in DB but not in the API, delete it
-                deploymentRepository.deleteByDeploymentId(dbDeployment.getDeploymentId());
-            }
-        });
+//        // Step 4: Handle deployments that are in the database but not in the API
+//        deployments.forEach(dbDeployment -> {
+//            if (!apiDeploymentIds.contains(dbDeployment.getDeploymentId())) {
+//                // Deployment exists in DB but not in the API, delete it
+//                deploymentRepository.deleteByDeploymentId(dbDeployment.getDeploymentId());
+//            }
+//        });
     }
 
     // Method to call the external API and return raw data

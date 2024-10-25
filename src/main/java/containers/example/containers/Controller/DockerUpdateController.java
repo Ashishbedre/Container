@@ -20,17 +20,17 @@ public class DockerUpdateController {
     @Autowired
     DockerUpdateService dockerUpdateService;
 
-    @PostMapping("/containers/{containerName}/update")
-    public Mono<ResponseEntity<String>> updateContainer(@PathVariable String containerName,
+    @PostMapping("/containers/{containerId}/update")
+    public Mono<ResponseEntity<String>> updateContainer(@PathVariable String containerId,
                                                         @RequestBody ContainerConfigDto requestBody) {
-        return dockerUpdateService.updateContainerResourcesByName(containerName,requestBody)
+        return dockerUpdateService.updateContainerResourcesByName(containerId,requestBody)
                 .map(response -> ResponseEntity.ok(response))
                 .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body("Failed to update container")));
     }
 
-    @GetMapping("/containers/{containerName}/inspect")
-    public DeploymentDto inspectContainer(@PathVariable String containerName) {
-        return dockerUpdateService.inspectContainer(containerName);
+    @GetMapping("/containers/{containerId}/inspect")
+    public DeploymentDto inspectContainer(@PathVariable String containerId) {
+        return dockerUpdateService.inspectContainer(containerId);
     }
 
 

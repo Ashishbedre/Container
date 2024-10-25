@@ -15,11 +15,16 @@ public interface DockerService {
 
     public DockerContainerResponse createContainer(ContainerConfigDto config);
 
-    public Deployment startContainerByApi(String containerName);
-    public void stopContainer(String containerName);
+//    public Deployment startContainerByApi(String containerName);
+//    public void stopContainer(String containerName);
 
 //    public Mono<String> updateContainerResourcesByName(String containerName, UpdateContainerRequest requestBody);
-    public boolean deleteByContainerName(String containerName);
+
+    public void stopDockerContainer(String containerId);
+
+    public Deployment startContainer(String containerId);
+
+    public boolean deleteByContainerId(String containerName);
 
     public void pullDockerImage(String image, String tag, String username,String password,String email,String serverAddress);
 

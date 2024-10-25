@@ -6,6 +6,10 @@ import containers.example.containers.Entity.PortMapping;
 import java.util.List;
 
 public class ContainerConfigDto {
+
+    private String deploymentId;
+
+    private String status;
     private String imageName;
     private String imageTag;
     private List<String> env;
@@ -24,6 +28,22 @@ public class ContainerConfigDto {
 
     // Getters and setters
 
+
+    public String getDeploymentId() {
+        return deploymentId;
+    }
+
+    public void setDeploymentId(String deploymentId) {
+        this.deploymentId = deploymentId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     public String getImageName() {
         return imageName;

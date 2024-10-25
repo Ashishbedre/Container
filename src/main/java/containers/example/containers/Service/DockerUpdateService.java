@@ -10,7 +10,7 @@ public interface DockerUpdateService {
     public Mono<String> updateContainerResourcesByName(String containerName, ContainerConfigDto requestBody);
 
 //    public Deployment inspectContainer(String containerName);
-    public DeploymentDto inspectContainer(String containerName);
+    public DeploymentDto inspectContainer(String containerId);
 
 //    public DeploymentDto inspectContainer1(String containerName);
 }
