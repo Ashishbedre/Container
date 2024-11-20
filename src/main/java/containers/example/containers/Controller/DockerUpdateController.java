@@ -23,7 +23,7 @@ public class DockerUpdateController {
     @PostMapping("/containers/{containerId}/update")
     public Mono<ResponseEntity<String>> updateContainer(@PathVariable String containerId,
                                                         @RequestBody ContainerConfigDto requestBody) {
-        return dockerUpdateService.updateContainerResourcesByName(containerId,requestBody)
+        return dockerUpdateService.updateContainerResourcesById(containerId,requestBody)
                 .map(response -> ResponseEntity.ok(response))
                 .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body("Failed to update container")));
     }

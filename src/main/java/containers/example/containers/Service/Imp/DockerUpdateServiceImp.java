@@ -62,9 +62,9 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
     }
 
 
-    public Mono<String> updateContainerResourcesByName(String containerId, ContainerConfigDto requestBody){
+    public Mono<String> updateContainerResourcesById(String containerId, ContainerConfigDto requestBody){
         Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerId + "' not found."));
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container id '" + containerId + "' not found."));
 
         if(deployment.getContainerConfig().getStatus().equals("pending")){
             requestBody.setDeploymentId(containerId);
@@ -82,30 +82,60 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
     }
 
     public DeploymentDto inspectContainer(String containerId) {
-
+        // Retrieve deployment from the repository
         Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerId + "' not found."));
-        DeploymentDto deploymentdto = getContainerDetailsById(deployment.getDeploymentId()).block();
-        ContainerConfig config = deployment.getContainerConfig();
-        deploymentdto.setContainerName(deployment.getContainerName());
-        // Mapping PortMapping to PortMappingdto
-        List<PortMappingdto> portMappingDtos = config.getPortMappings().stream()
-                .map(portMapping -> {
-                    PortMappingdto dto = new PortMappingdto();
-                    dto.setProtocol(portMapping.getProtocol());
-                    dto.setExposedPort(portMapping.getExposedPort());
-                    dto.setHostPort(portMapping.getHostPort());
-                    return dto;
-                }).collect(Collectors.toList());
-        deploymentdto.setPortMappings(portMappingDtos);
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container ID '" + containerId + "' not found."));
 
-        deploymentdto.setEnv(config.getEnv());
-        deploymentdto.setUsername(config.getUsername());
-        deploymentdto.setEmail(config.getEmail());
-        deploymentdto.setServerAddress(config.getServerAddress());
-        return deploymentdto;
+        DeploymentDto deploymentDto;
 
+        try {
+            // Fetch container details from the external API
+            deploymentDto = getContainerDetailsById(deployment.getDeploymentId()).block();
+        } catch (Exception e) {
+            // Log the exception for debugging purposes
+            System.err.println("Error fetching container details: " + e.getMessage());
+
+            // Fallback to creating DeploymentDto from the existing Deployment
+            deploymentDto = new DeploymentDto();
+        }
+
+        // Map Deployment data to DeploymentDto
+        populateDeploymentDto(deployment, deploymentDto);
+
+        return deploymentDto;
     }
+
+    private void populateDeploymentDto(Deployment deployment, DeploymentDto deploymentDto) {
+        deploymentDto.setDeploymentId(deployment.getDeploymentId());
+        deploymentDto.setContainerName(deployment.getContainerName());
+
+        ContainerConfig config = deployment.getContainerConfig();
+        if (config != null) {
+            // Map environment variables and command
+            deploymentDto.setImageName(config.getImageName());
+            deploymentDto.setImageTag(config.getImageTag());
+            deploymentDto.setCpu(config.getCpu());
+            deploymentDto.setMemory(config.getMemory());
+            deploymentDto.setStatus(config.getStatus());
+            deploymentDto.setEnv(config.getEnv());
+            deploymentDto.setCmd(config.getCmd());
+            deploymentDto.setUsername(config.getUsername());
+            deploymentDto.setEmail(config.getEmail());
+            deploymentDto.setServerAddress(config.getServerAddress());
+
+            // Map port mappings
+            List<PortMappingdto> portMappingDtos = config.getPortMappings().stream()
+                    .map(portMapping -> {
+                        PortMappingdto dto = new PortMappingdto();
+                        dto.setProtocol(portMapping.getProtocol());
+                        dto.setExposedPort(portMapping.getExposedPort());
+                        dto.setHostPort(portMapping.getHostPort());
+                        return dto;
+                    }).collect(Collectors.toList());
+            deploymentDto.setPortMappings(portMappingDtos);
+        }
+    }
+
 
     public Mono<DeploymentDto> getContainerDetailsById(String containerId) {
         return webClient.get()
@@ -193,47 +223,7 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
     }
 
 
-//    public Deployment inspectContainer(String containerName) {
-//
-//        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-//                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
-//
-//        return  deployment;
-//    }
 
-//      Ashish : this will be done in future
-//    public DeploymentDto inspectContainer(String containerName) {
-//
-//        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-//                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
-//        DeploymentDto deploymentdto = new DeploymentDto();
-////        deploymentdto.setId(deployment.getId());
-//        deploymentdto.setDeploymentId(deployment.getDeploymentId());
-//        deploymentdto.setContainerName(deployment.getContainerName());
-//
-//        ContainerConfig config = deployment.getContainerConfig();
-//        deploymentdto.setImageName(config.getImageName());
-//        deploymentdto.setImageTag(config.getImageTag());
-////        deploymentdto.setName(config.getName());
-//        deploymentdto.setCpu(config.getCpu());
-//        deploymentdto.setMemory(config.getMemory());
-////        deploymentdto.setStatus(config.isStatus());
-//        deploymentdto.setEnv(config.getEnv());
-//        deploymentdto.setCmd(config.getCmd());
-//        // Convert List<PortMapping> to List<PortMappingdto>
-//        List<PortMappingdto> portMappingDtos = config.getPortMappings().stream()
-//                .map(this::convertToDto) // Call conversion method for each PortMapping
-//                .toList(); // Collect results into a list
-//        deploymentdto.setPortMappings(portMappingDtos);
-//
-//        deploymentdto.setPortMappings(portMappingDtos);
-//        deploymentdto.setUsername(config.getUsername());
-//        deploymentdto.setEmail(config.getEmail());
-//        deploymentdto.setServerAddress(config.getServerAddress());
-//
-//
-//        return  deploymentdto;
-//    }
 
     // Method to convert PortMapping to PortMappingdto
     private PortMappingdto convertToDto(PortMapping portMapping) {
@@ -246,6 +236,7 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
 
 
     private Mono<String>  recreateContainer(String containerId, ContainerConfigDto requestBody){
+
         Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
                 .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerId + "' not found."));
 //        ContainerConfigDto recreateBody = updateDeploymentFromDto(deployment,requestBody);
@@ -261,24 +252,29 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
             dockerServiceImp.deleteByContainerId(containerId);
             deploymentRepository.deleteById(deployment.getId());
             dockerServiceImp.createContainer(requestBody);
+            log(containerId, "Container recreated successfully.");
 
-        }catch (Exception e){
-            System.out.println(e.getMessage());
+        }catch (Exception e) {
+            // Log any errors during the process
+            String errorMessage = "Error during container recreation: " + e.getMessage();
+            log(containerId, errorMessage);
+            System.err.println(errorMessage);
+            return Mono.just("Error during container recreation: " + e.getMessage());
         }
         return Mono.just("Container recreated successfully");
     }
 
 
-    private boolean isOnlyMemoryOrCpuUpdate(String containerName, ContainerConfigDto request) {
+    private boolean isOnlyMemoryOrCpuUpdate(String containerId, ContainerConfigDto request) {
         return (((request.getMemory() != null || request.getCpusetCpus() != null)) ||
                 ((request.getMemory() == null && request.getCpusetCpus() == null))) &&
-                !changesAffectRecreation(containerName,request);
+                !changesAffectRecreation(containerId,request);
     }
 
 
-    private boolean changesAffectRecreation(String containerName,ContainerConfigDto request) {
-        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
+    private boolean changesAffectRecreation(String containerId,ContainerConfigDto request) {
+        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with container id '" + containerId + "' not found."));
 
         // Compare each field, including handling null values in the request
         return (request.getImageName() != null && !request.getImageName().equals(deployment.getContainerConfig().getImageName()))
@@ -341,9 +337,23 @@ public class DockerUpdateServiceImp implements DockerUpdateService {
                     containerConfig.setCpu(requestBody.getCpusetCpus() != null ? requestBody.getCpusetCpus() : "0");
                     containerConfig.setMemory(requestBody.getMemory() != null ? requestBody.getMemory() : 0L);
                     deploymentRepository.save(deployment);
+                    log(containerId, "Container resources updated successfully.");
                     return Mono.just(response); // Return the response from Docker API
                 })
-                .onErrorResume(e -> Mono.just("Error updating container: " + e.getMessage()));
+                .onErrorResume(e -> {
+                    // Log any errors that occur during the process
+                    String errorMessage = "Error updating container resources: " + e.getMessage();
+                    log(containerId, errorMessage);
+                    return Mono.just(errorMessage); // Return error message in the response
+                });
+    }
+
+    private void log(String containerId, String Message) {
+        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
+        ContainerConfig containerConfig = deployment.getContainerConfig();
+        containerConfig.setLog(Message);
+        deploymentRepository.save(deployment);
     }
 
 

@@ -1,7 +1,6 @@
 package containers.example.containers.Service.Imp;
 
-//import containers.example.containers.Entity.ContainerConfig;
-//import containers.example.containers.Entity.Deployment;
+
 import containers.example.containers.Entity.ContainerConfig;
 import containers.example.containers.Entity.Deployment;
 import containers.example.containers.Helper.Helper;
@@ -82,16 +81,7 @@ public class DockerServiceImp implements DockerService {
                 .retrieve() // Fetch the response
                 .bodyToFlux(Map.class)
                 .map(container -> {
-                    // Assuming "Names" is a list
-//                    List<String> names = (List<String>) container.get("Names");
-//                    String containerName = names != null && !names.isEmpty() ? names.get(0) : null; // Safely get the first name
 
-//                    // Remove leading slash if present
-//                    if (containerName != null && containerName.startsWith("/")) {
-//                        containerName = containerName.substring(1);
-//                    }
-
-                    // Use deploymentId instead of containerName
                     String deploymentId = (String) container.get("Id"); // Assuming Docker container ID matches deploymentId
 
                     Deployment deployment = deploymentMap.get(deploymentId);
@@ -112,13 +102,14 @@ public class DockerServiceImp implements DockerService {
                             response.put("cpu", config.getCpu());
                             response.put("memory", config.getMemory());
                         }
-
+                        response.put("log",config.getLog());
                         response.put("ui", config.isState());
                     } else {
                         // Fallback values if no deployment is found
                         response.put("cpu", null);
                         response.put("memory", null);
                         response.put("ui", 0);
+                        response.put("log",null);
                     }
 
                     // Mark the deploymentId as processed
@@ -161,6 +152,7 @@ public class DockerServiceImp implements DockerService {
                             leftoverResponse.put("username", config.getUsername());
                             leftoverResponse.put("email", config.getEmail());
                             leftoverResponse.put("serverAddress", config.getServerAddress());
+                            leftoverResponse.put("log",config.getLog());
 
                             // Add the leftover response to the list
                             leftoverResponses.add(leftoverResponse);
@@ -201,9 +193,9 @@ public class DockerServiceImp implements DockerService {
 
     public DockerContainerResponse createContainer(ContainerConfigDto config)  {
         try {
-            pullDockerImage(config.getImageName(),config.getImageTag(),config.getUsername(),config.getPassword(),config.getEmail(),config.getServerAddress());
+//            pullDockerImage(config.getImageName(),config.getImageTag(),config.getUsername(),config.getPassword(),config.getEmail(),config.getServerAddress());
             DockerContainerResponse container;
-            Deployment savedDeployment = new Deployment();
+            Deployment savedDeployment;
 
             //Ashish add  Save or update deployment based on status and deployment ID
             if ((config.getDeploymentId() == null || config.getDeploymentId().isBlank()) &&
@@ -214,21 +206,25 @@ public class DockerServiceImp implements DockerService {
                     "pending".equals(config.getStatus())) {
 
                 savedDeployment = UpdateSaveDeployment(config);
+            } else {
+                throw new RuntimeException("Invalid deployment status or ID.");
             }
-//            }else if (config.getDeploymentId() != null && !config.getDeploymentId().isBlank() &&
-//                    config.getStatus() != null && !config.getStatus().isBlank() && !"pending".equals(config.getStatus())) {
-//
-//                savedDeployment = saveDeployment(config);
-//            }
+
+            try{
+                pullDockerImage(config.getImageName(),config.getImageTag(),config.getUsername(),config.getPassword(),config.getEmail(),config.getServerAddress());
+            }catch (Exception e){
+                log(savedDeployment.getDeploymentId(), "Docker image pull failed: " + e.getMessage());
+                throw new RuntimeException("Docker image pull failed");
+            }
 
             try {
                 container = createDockerContainer(config).block();
+                if (container == null) {
+                    throw new RuntimeException("Docker container creation returned null.");
+                }
             }catch (Exception e){
-                e.printStackTrace();
-                throw new RuntimeException("Docker container creation failed.");
-            }
-    //        DockerContainerResponse container = createDockerContainer(config).block();
-            if (container == null) {
+                System.out.println(savedDeployment.getDeploymentId());
+                log(savedDeployment.getDeploymentId(),  e.getMessage());
                 throw new RuntimeException("Docker container creation failed.");
             }
 
@@ -249,9 +245,11 @@ public class DockerServiceImp implements DockerService {
             try {
                 deploymentRepository.save(deployment);
             } catch (Exception e) {
+                log(savedDeployment.getDeploymentId(), "Failed to save deployment: " + e.getMessage());
                 throw new RuntimeException("Failed to save deployment: " + e.getMessage());
             }
             startContainer(container.getId());
+            log(savedDeployment.getDeploymentId(),"Docker container created and started successfully.");
 
             return container;
         } catch (DockerOperationException e) {
@@ -262,29 +260,15 @@ public class DockerServiceImp implements DockerService {
     }
 
 
-//    public Deployment startContainerByApi(String containerName) {
-//        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-//                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
-//
-//        startContainer(deployment.getDeploymentId());
-//        return deployment ;
-//    }
-//
-//    public void stopContainer(String containerName) {
-//        Deployment deployment = deploymentRepository.findByContainerName(containerName)
-//                .orElseThrow(() -> new NoSuchElementException("Deployment with container name '" + containerName + "' not found."));
-//
-//        stopDockerContainer(deployment.getDeploymentId());
-//    }
-
-
     public boolean deleteByContainerId(String containerId) {
 
         Optional<Deployment> deploymentOpt = deploymentRepository.findByDeploymentId(containerId);
 
-        // Find the deployment by containerName
-        if (deploymentOpt.isPresent()) {
-            Deployment deployment = deploymentOpt.get();
+        if (deploymentOpt.isEmpty()) {
+            return false;
+        }
+
+        Deployment deployment = deploymentOpt.get();
 
             // Check if the container status is not "pending"
             if (!"pending".equals(deployment.getContainerConfig().getStatus())) {
@@ -302,44 +286,36 @@ public class DockerServiceImp implements DockerService {
 
                     // If successful, delete the deployment from the database
                     deploymentRepository.delete(deployment);
+//                    log(containerId, "Container successfully deleted.");
                     return true;
 
                 } catch (WebClientResponseException e) {
-                    // Handle the case when the external API call fails
+                    // Log the error to the container's configuration
+                    log(containerId, "Error deleting container: " + e.getResponseBodyAsString());
                     System.err.println("Error deleting container: " + e.getResponseBodyAsString());
                     return false;
+                }catch (Exception e) {
+                    // Log unexpected errors
+                    log(containerId, "Unexpected error deleting container: " + e.getMessage());
+                    System.err.println("Unexpected error deleting container: " + e.getMessage());
+                    return false;
                 }
-            }else{
+            }else {
+                // If the container is in "pending" status, directly delete from the database
                 deploymentRepository.delete(deployment);
                 return true;
             }
-        }
-        return false;
+
     }
 
 
-//    public void stopDockerContainer(String containerId) {
-//        // Retrieve Deployment by deploymentId
-//        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
-//                .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
-//
-//        if(!"pending".equals(deployment.getContainerConfig().getStatus())) {
-//            ContainerConfig containerConfig = deployment.getContainerConfig();
-//            containerConfig.setStatus("exited");
-////        containerConfig.setState("0");
-//            deploymentRepository.save(deployment);
-//
-//            webClient.post()
-//                    .uri(dockerApiUrl + "/containers/{containerId}/stop", containerId)
-//                    .retrieve()
-//                    .bodyToMono(Void.class)
-//                    .block();
-//        }
-//    }
     public void stopDockerContainer(String containerId) {
         // Retrieve Deployment by deploymentId
         Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
-                .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
+                .orElseThrow(() -> {
+                    String errorMessage = "Deployment with deploymentId '" + containerId + "' not found.";
+                    return new NoSuchElementException(errorMessage);
+                });
 
         ContainerConfig containerConfig = deployment.getContainerConfig();
 
@@ -353,22 +329,28 @@ public class DockerServiceImp implements DockerService {
                         .bodyToMono(Void.class)
                         .block();
 
-                // Update the container status to "exited"
                 containerConfig.setStatus("exited");
-    //          containerConfig.setState("0"); // Uncomment if needed
                 deploymentRepository.save(deployment);
+                // Log the successful stop action
+                log(containerId, "Container stopped successfully.");
 
             } catch (WebClientResponseException e) {
-                // Handle errors from the external API
-                System.err.println("Error stopping container: " + e.getResponseBodyAsString());
+                String errorMessage = "Error stopping container: " + e.getResponseBodyAsString();
+                log(containerId, errorMessage);
+                System.err.println(errorMessage);
                 throw new RuntimeException("Failed to stop container: " + e.getMessage(), e);
+
             } catch (Exception e) {
-                // Handle other possible exceptions
-                System.err.println("Unexpected error: " + e.getMessage());
+                String errorMessage = "Unexpected error: " + e.getMessage();
+                log(containerId, errorMessage);
+                System.err.println(errorMessage);
                 throw new RuntimeException("Unexpected error occurred while stopping the container", e);
             }
         } else {
-            System.out.println("Container is in 'pending' status and cannot be stopped.");
+            // Log if the container is in "pending" status and cannot be stopped
+            String message = "Container is in 'pending' status and cannot be stopped.";
+            log(containerId, message);
+            System.out.println(message);
         }
     }
 
@@ -376,43 +358,52 @@ public class DockerServiceImp implements DockerService {
 
     public Deployment startContainer(String containerId) {
 
-        try {
-            // Retrieve Deployment by deploymentId
+//        try {
             Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
-                    .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
+                    .orElseThrow(() -> {
+                        String errorMessage = "Deployment with deploymentId '" + containerId + "' not found.";
+                        return new NoSuchElementException(errorMessage);
+                    });
 
             ContainerConfig containerConfig = deployment.getContainerConfig();
 
             // Proceed only if the container is not in "pending" status
             if (!"pending".equals(containerConfig.getStatus())) {
-                // Start the Docker container via WebClient
-                webClient.post()
-                        .uri(dockerApiUrl + "/containers/" + containerId + "/start")
-                        .contentLength(0)
-                        .retrieve()
-                        .bodyToMono(Void.class)
-                        .block();
+                try {
+                    // Start the Docker container via WebClient
+                    webClient.post()
+                            .uri(dockerApiUrl + "/containers/" + containerId + "/start")
+                            .contentLength(0)
+                            .retrieve()
+                            .bodyToMono(Void.class)
+                            .block();
 
-                // Update the container status to "running"
-                containerConfig.setStatus("running");
-//          containerConfig.setState("1"); // Uncomment if needed
-                deploymentRepository.save(deployment);
+                    containerConfig.setStatus("running");
+                    deploymentRepository.save(deployment);
+                    log(containerId, "Container started successfully.");
+                } catch (WebClientResponseException e) {
+                    String errorMessage = "Error starting container: " + (e.getResponseBodyAsString() != null ? e.getResponseBodyAsString() : "No response body");
+                    log(containerId, errorMessage);
+                    System.err.println(errorMessage);
+                    throw new RuntimeException("Failed to start container: " + e.getMessage(), e);
 
+                } catch (Exception e) {
+                    String errorMessage = "Unexpected error: " + e.getMessage();
+                    log(containerId, errorMessage);
+                    System.err.println(errorMessage);
+                    throw new RuntimeException("Unexpected error occurred while starting the container", e);
+                }
             } else {
                 System.out.println("Container is in 'pending' status and cannot be started.");
             }
-
             return deployment;
 
-        } catch (WebClientResponseException e) {
-            // Handle errors from the external API
-            System.err.println("Error starting container: " + e.getResponseBodyAsString());
-            throw new RuntimeException("Failed to start container: " + e.getMessage(), e);
-        } catch (Exception e) {
-            // Handle other possible exceptions
-            System.err.println("Unexpected error: " + e.getMessage());
-            throw new RuntimeException("Unexpected error occurred while starting the container", e);
-        }
+//        } catch (Exception e) {
+//            String errorMessage = "Unexpected error: " + e.getMessage();
+//            log(containerId, errorMessage);
+//            System.err.println(errorMessage);
+//            throw new RuntimeException("Unexpected error occurred while starting the container", e);
+//        }
     }
 
 
@@ -459,8 +450,8 @@ public class DockerServiceImp implements DockerService {
                 .doOnSubscribe(subscription -> logger.info("Creating Docker container with config: {}", config))
                 .doOnNext(response -> logger.info("Docker API response received: {}", response))
                 .onErrorResume(WebClientResponseException.class, e -> {
-                    String errorMessage = String.format("Failed to create Docker container: %d %s from POST %s",
-                            e.getRawStatusCode(), e.getStatusText(), e.getRequest().getURI());
+                    String errorMessage = String.format("Failed to create Docker container: %d %s ",
+                            e.getRawStatusCode(), e.getStatusText());
                     throw new DockerOperationException(errorMessage, e.getRawStatusCode());
                 })
                 .onErrorResume(Exception.class, e -> {
@@ -501,7 +492,11 @@ public class DockerServiceImp implements DockerService {
                     System.out.println("Docker image pull response: " + response);
                 })
                 .doOnError(error -> {
-                    System.err.println("Error pulling Docker image: " + error.getMessage());
+                    String errorMessage = "Error pulling Docker image: " + error.getMessage();
+                    System.err.println(errorMessage);
+
+                    // Rethrow the exception to indicate failure
+                    throw new RuntimeException(errorMessage, error);
                 })
                 .blockLast();
     }
@@ -617,10 +612,11 @@ public class DockerServiceImp implements DockerService {
         containerConfig.setState(true);
 
         // Set PortMappings
-        List<PortMapping> portMappings = containerConfigDto.getPortMappings()
+        List<PortMapping> portMappings = containerConfigDto.getPortMappings() != null
+                ?containerConfigDto.getPortMappings()
                 .stream()
                 .map(this::mapToPortMapping)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()):null;
         containerConfig.setPortMappings(portMappings);
 
         // Create Deployment
@@ -713,6 +709,14 @@ public class DockerServiceImp implements DockerService {
             currentPortMappings.removeIf(existingPortMapping -> dto.getPortMappings().stream()
                     .noneMatch(portMappingDto -> portMappingDto.getExposedPort().equals(existingPortMapping.getExposedPort())));
         }
+    }
+
+    private void log(String containerId, String Message) {
+        Deployment deployment = deploymentRepository.findByDeploymentId(containerId)
+                .orElseThrow(() -> new NoSuchElementException("Deployment with deploymentId '" + containerId + "' not found."));
+        ContainerConfig containerConfig = deployment.getContainerConfig();
+        containerConfig.setLog(Message);
+        deploymentRepository.save(deployment);
     }
 
 }

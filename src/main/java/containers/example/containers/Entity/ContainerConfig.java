@@ -23,6 +23,9 @@ public class ContainerConfig {
 
     private boolean State;
 
+    @Lob
+    private String log;
+
     @ElementCollection(fetch = FetchType.EAGER)
     private List<String> env;
 
@@ -108,6 +111,14 @@ public class ContainerConfig {
 
     public void setState(boolean state) {
         State = state;
+    }
+
+    public String getLog() {
+        return log;
+    }
+
+    public void setLog(String log) {
+        this.log = log;
     }
 
     public List<String> getEnv() {

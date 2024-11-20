@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 
 public interface DockerUpdateService {
 
-    public Mono<String> updateContainerResourcesByName(String containerName, ContainerConfigDto requestBody);
+    public Mono<String> updateContainerResourcesById(String containerName, ContainerConfigDto requestBody);
 
 //    public Deployment inspectContainer(String containerName);
     public DeploymentDto inspectContainer(String containerId);
